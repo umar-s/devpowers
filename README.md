@@ -8,6 +8,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 |--------|--------------|------|
 | **[research-pipeline](https://github.com/umar-s/research-pipeline)** | Multi-phase parallel research pipeline: decompose a topic → research aspects in parallel → synthesize → quality gate → fully-cited report. Source tiering, slop detection, git-based checkpointing, WebSearch/Exa backends. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
 | **[loop-foundry](https://github.com/umar-s/loop-foundry)** | Loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runners → staged autonomy ladder (shadow → gated → autonomous). Refuses to build loops where the approach does not apply. | [umar-s/loop-foundry](https://github.com/umar-s/loop-foundry) |
+| **[voxscribe](https://github.com/umar-s/research-pipeline)** | Russian-first audio/video → readable text via faster-whisper on CPU: lecture, dialogue (pyannote diarization) and folder fan-out modes. Idempotent, atomic writes, no-speech guard. Lives in the research-pipeline repo. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
 
 ## Install
@@ -18,6 +19,7 @@ In Claude Code:
 /plugin marketplace add umar-s/devpowers
 /plugin install research-pipeline
 /plugin install loop-foundry
+/plugin install voxscribe
 /plugin install premortem
 ```
 
@@ -38,8 +40,9 @@ The catalog (`.claude-plugin/marketplace.json`) references each plugin's own rep
 devpowers/                            # this repo — catalog only
 └── .claude-plugin/marketplace.json   # entries point at external plugin repos
 
-umar-s/research-pipeline              # plugin repo
-└── plugins/research-pipeline/        # ← git-subdir path
+umar-s/research-pipeline              # plugin repo (ships two plugins)
+├── plugins/research-pipeline/        # ← git-subdir path
+└── plugins/voxscribe/                # ← git-subdir path
 
 umar-s/loop-foundry                   # plugin repo
 └── plugins/loop-foundry/             # ← git-subdir path

@@ -42,6 +42,23 @@
       }
     },
     {
+      "name": "voxscribe",
+      "displayName": "Voxscribe",
+      "description": "Russian-first audio/video → readable text via faster-whisper on CPU. Three modes: lecture (transcribe + paragraph stitching → .md), dialogue (transcribe + pyannote diarization + sbert punctuation → speaker turns with em-dashes), folder (list files and fan out to parallel subagents). Auto-extracts wav from video via ffmpeg, idempotent, atomic writes, no-speech guard.",
+      "category": "media",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/research-pipeline",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/umar-s/research-pipeline.git",
+        "path": "plugins/voxscribe",
+        "ref": "main"
+      }
+    },
+    {
       "name": "premortem",
       "displayName": "Premortem",
       "description": "Premortem advisor — finds the concrete ways a plan could fail before commitment: multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem. Klein 2007 + Kahneman outside view.",
