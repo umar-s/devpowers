@@ -42,6 +42,23 @@
       }
     },
     {
+      "name": "co-rar",
+      "displayName": "CO-RAR",
+      "description": "Design and critique frame for systems where AI orchestrates execution and quality is held by a continuous adversarial loop — anti-spam/anti-fraud, warmup and deliverability, agentic pipelines, codeless backends, systems that must mutate under environmental pressure instead of decaying. Companion skill for loop-foundry's statistical-gate loops.",
+      "category": "architecture",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/co-rar",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/umar-s/co-rar.git",
+        "path": "plugins/co-rar",
+        "ref": "main"
+      }
+    },
+    {
       "name": "voxscribe",
       "displayName": "Voxscribe",
       "description": "Russian-first audio/video → readable text via faster-whisper on CPU. Three modes: lecture (transcribe + paragraph stitching → .md), dialogue (transcribe + pyannote diarization + sbert punctuation → speaker turns with em-dashes), folder (list files and fan out to parallel subagents). Auto-extracts wav from video via ffmpeg, idempotent, atomic writes, no-speech guard.",
