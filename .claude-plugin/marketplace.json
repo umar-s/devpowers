@@ -1,0 +1,45 @@
+{
+  "name": "devpowers",
+  "owner": {
+    "name": "umar-s"
+  },
+  "metadata": {
+    "description": "devpowers — a product line of Claude Code plugins by umar-s: research, loop engineering, and more. One marketplace, individual plugin repos."
+  },
+  "plugins": [
+    {
+      "name": "research-pipeline",
+      "displayName": "Research Pipeline",
+      "description": "Multi-phase parallel research pipeline — decompose topic → research aspects in parallel → synthesize → quality gate → grounded report. Includes source tiering, slop detection, git-based checkpointing, and WebSearch/Exa backends.",
+      "category": "research",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/research-pipeline",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/umar-s/research-pipeline.git",
+        "path": "plugins/research-pipeline",
+        "ref": "main"
+      }
+    },
+    {
+      "name": "loop-foundry",
+      "displayName": "Loop Foundry",
+      "description": "End-to-end loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runner generation → staged autonomy ladder (shadow → gated → autonomous) with measured approval rates. Refuses to build loops where the approach does not apply.",
+      "category": "automation",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/loop-foundry",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/umar-s/loop-foundry.git",
+        "path": "plugins/loop-foundry",
+        "ref": "main"
+      }
+    }
+  ]
+}
