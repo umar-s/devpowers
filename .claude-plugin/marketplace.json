@@ -40,6 +40,20 @@
         "path": "plugins/loop-foundry",
         "ref": "main"
       }
+    },
+    {
+      "name": "premortem",
+      "displayName": "Premortem",
+      "description": "Premortem advisor — finds the concrete ways a plan could fail before commitment: multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem. Klein 2007 + Kahneman outside view.",
+      "category": "planning",
+      "author": {
+        "name": "AndyShaman"
+      },
+      "homepage": "https://github.com/umar-s/premortem",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/umar-s/premortem.git"
+      }
     }
   ]
 }

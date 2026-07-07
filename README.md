@@ -8,6 +8,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 |--------|--------------|------|
 | **[research-pipeline](https://github.com/umar-s/research-pipeline)** | Multi-phase parallel research pipeline: decompose a topic → research aspects in parallel → synthesize → quality gate → fully-cited report. Source tiering, slop detection, git-based checkpointing, WebSearch/Exa backends. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
 | **[loop-foundry](https://github.com/umar-s/loop-foundry)** | Loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runners → staged autonomy ladder (shadow → gated → autonomous). Refuses to build loops where the approach does not apply. | [umar-s/loop-foundry](https://github.com/umar-s/loop-foundry) |
+| **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
 
 ## Install
 
@@ -17,6 +18,7 @@ In Claude Code:
 /plugin marketplace add umar-s/devpowers
 /plugin install research-pipeline
 /plugin install loop-foundry
+/plugin install premortem
 ```
 
 Or via the CLI:
@@ -41,7 +43,12 @@ umar-s/research-pipeline              # plugin repo
 
 umar-s/loop-foundry                   # plugin repo
 └── plugins/loop-foundry/             # ← git-subdir path
+
+umar-s/premortem                      # forked plugin repo — plugin at repo root
+└── .claude-plugin/plugin.json        # ← plain url source
 ```
+
+Forked repos are packaged additively: a single `.claude-plugin/plugin.json` is added on top of the upstream layout (with a `skills` path override if the skill does not live under `skills/`), so upstream merges stay conflict-free.
 
 ## Adding a plugin to the line
 
