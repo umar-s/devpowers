@@ -88,6 +88,21 @@
         "source": "url",
         "url": "https://github.com/umar-s/premortem.git"
       }
+    },
+    {
+      "name": "task-flow",
+      "displayName": "Task Flow + CI Gate",
+      "description": "Disciplined per-task quality flow with a deterministic CI gate: ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close. Bundles ci-gate — a portable gitleaks secret-scan + tool-agnostic migration-guard + protected-branch gate scaffolded into any GitLab/GitHub repo.",
+      "category": "workflow",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/task-flow",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/umar-s/task-flow.git"
+      }
     }
   ]
 }
