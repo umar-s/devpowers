@@ -11,6 +11,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 | **[co-rar](https://github.com/umar-s/co-rar)** | CO-RAR — Continuous Resilient Adversarial Reasoning in Codeless Design: diagnostic (N/S/A conditions), seven design principles, adversarial-critic and feedback-loop playbooks for systems that must mutate under pressure. Companion skill for loop-foundry's statistical-gate loops. | [umar-s/co-rar](https://github.com/umar-s/co-rar) |
 | **[voxscribe](https://github.com/umar-s/research-pipeline)** | Russian-first audio/video → readable text via faster-whisper on CPU: lecture, dialogue (pyannote diarization) and folder fan-out modes. Idempotent, atomic writes, no-speech guard. Lives in the research-pipeline repo. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
+| **[task-flow](https://github.com/umar-s/task-flow)** | Per-task quality flow + deterministic CI gate: ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close. Bundles **ci-gate** — portable gitleaks secret-scan + tool-agnostic migration-guard + protected-branch, scaffolded into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
 
 ## Install
 
@@ -23,6 +24,7 @@ In Claude Code:
 /plugin install co-rar
 /plugin install voxscribe
 /plugin install premortem
+/plugin install task-flow
 ```
 
 Or via the CLI:
@@ -51,6 +53,11 @@ umar-s/loop-foundry                   # plugin repo
 
 umar-s/premortem                      # forked plugin repo — plugin at repo root
 └── .claude-plugin/plugin.json        # ← plain url source
+
+umar-s/task-flow                      # plugin repo — plugin at repo root
+├── .claude-plugin/plugin.json        # ← plain url source
+├── skills/{task,ci-gate}/            # two skills, auto-discovered
+└── templates/ci-gate/                # payload the ci-gate skill scaffolds
 ```
 
 Forked repos are packaged additively: a single `.claude-plugin/plugin.json` is added on top of the upstream layout (with a `skills` path override if the skill does not live under `skills/`), so upstream merges stay conflict-free.
