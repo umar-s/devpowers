@@ -10,6 +10,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 | **[loop-foundry](https://github.com/umar-s/loop-foundry)** | Loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runners → staged autonomy ladder (shadow → gated → autonomous). Refuses to build loops where the approach does not apply. | [umar-s/loop-foundry](https://github.com/umar-s/loop-foundry) |
 | **[co-rar](https://github.com/umar-s/co-rar)** | CO-RAR — Continuous Resilient Adversarial Reasoning in Codeless Design: diagnostic (N/S/A conditions), seven design principles, adversarial-critic and feedback-loop playbooks for systems that must mutate under pressure. Companion skill for loop-foundry's statistical-gate loops. | [umar-s/co-rar](https://github.com/umar-s/co-rar) |
 | **[voxscribe](https://github.com/umar-s/research-pipeline)** | Russian-first audio/video → readable text via faster-whisper on CPU: lecture, dialogue (pyannote diarization) and folder fan-out modes. Idempotent, atomic writes, no-speech guard. Lives in the research-pipeline repo. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
+| **[md2pdf](https://github.com/umar-s/md2pdf)** | Markdown → presentable PDF without LaTeX: pandoc → house-style HTML (GitHub typography, IBM Plex, A4) → headless Chromium print-to-pdf. Cyrillic everywhere, mushaf-style right-alignment for Arabic quotes, wide tables kept inside the page margin with per-column widths set from Markdown. | [umar-s/md2pdf](https://github.com/umar-s/md2pdf) |
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
 | **[task-flow](https://github.com/umar-s/task-flow)** | Per-task quality flow + deterministic CI gate: ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close. Bundles **ci-gate** — portable gitleaks secret-scan + tool-agnostic migration-guard + protected-branch, scaffolded into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
 
@@ -24,6 +25,7 @@ In Claude Code:
 /plugin install co-rar
 /plugin install voxscribe
 /plugin install premortem
+/plugin install md2pdf
 /plugin install task-flow
 ```
 
