@@ -103,6 +103,21 @@
         "source": "url",
         "url": "https://github.com/umar-s/task-flow.git"
       }
+    },
+    {
+      "name": "md2pdf",
+      "displayName": "md2pdf",
+      "description": "Markdown → presentable PDF without LaTeX: pandoc → house-style HTML template (GitHub typography, IBM Plex, A4, compact margins) → headless Chromium print-to-pdf. Cyrillic works everywhere; pure-Arabic lines inside quotes are right-aligned mushaf-style for bilingual ayat/translation documents. Wide tables stay inside the page margin, with per-column widths settable from Markdown.",
+      "category": "documents",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/md2pdf",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/umar-s/md2pdf.git"
+      }
     }
   ]
 }
