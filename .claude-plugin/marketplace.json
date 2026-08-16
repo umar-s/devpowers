@@ -92,7 +92,7 @@
     {
       "name": "task-flow",
       "displayName": "Task Flow + CI Gate",
-      "description": "Three skills, one pipeline: decompose → task → ci-gate. decompose cuts an epic, feature or spec into dependency-linked tasks with a DoD, story points, a graph and parallelism waves; task runs one ticket end-to-end — ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close; ci-gate scaffolds the deterministic merge floor into any GitLab/GitHub repo — portable gitleaks secret-scan, tool-agnostic migration-guard, protected-branch.",
+      "description": "Three skills, one pipeline: decompose → task → ci-gate. decompose cuts an epic, feature or spec into dependency-linked tasks — DoD with truths, story points, dependency graph, parallelism waves checked for shared-write collisions. task runs one ticket end-to-end: ingest with a declared blast-radius tier that scales the artifacts and never the gates → 2× premortem → TDD under anti-gaming rules, a red-suite baseline and a diff-scoped mutation check → adversarial clean-context code-review → conditional security-review with a capability diff → live verify → close with an evidence block of real numbers and the command that reproduces them. ci-gate scaffolds the deterministic merge floor into any GitLab/GitHub repo: portable gitleaks secret-scan, tool-agnostic migration-guard, changed-line coverage threshold reading lcov/Cobertura/Clover, protected-branch. Every layer fails closed, and the skill makes you prove each one can fail before you trust its pass.",
       "category": "workflow",
       "author": {
         "name": "Sergei",
