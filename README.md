@@ -12,7 +12,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 | **[voxscribe](https://github.com/umar-s/research-pipeline)** | Russian-first audio/video → readable text via faster-whisper on CPU: lecture, dialogue (pyannote diarization) and folder fan-out modes. Idempotent, atomic writes, no-speech guard. Lives in the research-pipeline repo. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
 | **[md2pdf](https://github.com/umar-s/md2pdf)** | Markdown → presentable PDF without LaTeX: pandoc → house-style HTML (GitHub typography, IBM Plex, A4) → headless Chromium print-to-pdf. Cyrillic everywhere, mushaf-style right-alignment for Arabic quotes, wide tables kept inside the page margin with per-column widths set from Markdown. | [umar-s/md2pdf](https://github.com/umar-s/md2pdf) |
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
-| **[task-flow](https://github.com/umar-s/task-flow)** | Per-task quality flow + deterministic CI gate: ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close. Bundles **ci-gate** — portable gitleaks secret-scan + tool-agnostic migration-guard + protected-branch, scaffolded into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
+| **[task-flow](https://github.com/umar-s/task-flow)** | Three skills, one pipeline: **decompose** → **task** → **ci-gate**. `decompose` cuts an epic/feature/spec into dependency-linked tasks (DoD with truths, story points, graph, parallelism waves); `task` takes one ticket ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close; `ci-gate` scaffolds the deterministic merge floor — portable gitleaks secret-scan + tool-agnostic migration-guard + protected-branch — into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
 
 ## Install
 
@@ -58,7 +58,7 @@ umar-s/premortem                      # forked plugin repo — plugin at repo ro
 
 umar-s/task-flow                      # plugin repo — plugin at repo root
 ├── .claude-plugin/plugin.json        # ← plain url source
-├── skills/{task,ci-gate}/            # two skills, auto-discovered
+├── skills/{decompose,task,ci-gate}/  # three skills, auto-discovered
 └── templates/ci-gate/                # payload the ci-gate skill scaffolds
 ```
 

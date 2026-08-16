@@ -92,7 +92,7 @@
     {
       "name": "task-flow",
       "displayName": "Task Flow + CI Gate",
-      "description": "Disciplined per-task quality flow with a deterministic CI gate: ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close. Bundles ci-gate — a portable gitleaks secret-scan + tool-agnostic migration-guard + protected-branch gate scaffolded into any GitLab/GitHub repo.",
+      "description": "Three skills, one pipeline: decompose → task → ci-gate. decompose cuts an epic, feature or spec into dependency-linked tasks with a DoD, story points, a graph and parallelism waves; task runs one ticket end-to-end — ingest → 2× premortem → TDD → adversarial code-review → conditional security-review → live verify → close; ci-gate scaffolds the deterministic merge floor into any GitLab/GitHub repo — portable gitleaks secret-scan, tool-agnostic migration-guard, protected-branch.",
       "category": "workflow",
       "author": {
         "name": "Sergei",
