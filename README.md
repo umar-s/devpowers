@@ -1,5 +1,10 @@
 # devpowers
 
+[![plugins](https://img.shields.io/badge/plugins-7-0b7285)](#plugins)
+[![updated](https://img.shields.io/github/last-commit/umar-s/devpowers?label=catalog%20updated&color=0b7285)](CHANGELOG.md)
+[![changelog](https://img.shields.io/badge/changelog-dated-0b7285)](CHANGELOG.md)
+[![license](https://img.shields.io/badge/license-MIT-0b7285)](LICENSE)
+
 A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), served from one marketplace. Each plugin lives in its own repository; this repo is a thin catalog that references them — add the marketplace once, install any plugin, get updates as the plugins evolve.
 
 ## Plugins
