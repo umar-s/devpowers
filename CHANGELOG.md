@@ -19,9 +19,11 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
   prediction-protocol 1.0.3, loop-foundry 1.1.0, co-rar 1.0.1: who calls whom,
   the cross-cutting invariants, every phase of `decompose` / `task` / `ci-gate`,
   the gate matrix of prediction-protocol, loop-foundry's filter, spec, runner
-  contract and ladder, co-rar's diagnostic and principles, three worked
-  scenarios, the August 2026 chronology and the known traps. No source or ref
-  change.
+  contract and ladder, co-rar's diagnostic and principles, a usage section
+  with the actual commands and prompts (project bindings, `/decompose` →
+  `/task`, a headless `claude -p` run, a ticket pool fed to loop-foundry so
+  each ticket runs through `task`, the operator's acts), the August 2026
+  chronology and the known traps. No source or ref change.
 
 ## 2026-08-22 — loop-foundry 1.1.0 names its companion
 
