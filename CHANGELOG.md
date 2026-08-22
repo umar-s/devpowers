@@ -13,6 +13,15 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [prediction-protocol](https://github.com/umar-s/prediction-protocol/releases) ·
 [premortem](https://github.com/umar-s/premortem/releases).
 
+## 2026-08-22 — loop-foundry 1.1.0 names its companion
+
+- **loop-foundry** description (table and catalog entry) now names
+  prediction-protocol as the companion: receipts for one-way commands in every
+  tick, required past shadow. Plugin release v1.1.0 carries the contract
+  (`references/predictions.md`); prediction-protocol v1.0.2 carries the plugin
+  side (loop operator-only `ack`/`withdraw`/`off`, `ungated` counted, state
+  guard by path). No source or ref change.
+
 ## 2026-08-22 — prediction-protocol added
 
 - New entry **prediction-protocol** (`umar-s/prediction-protocol`,

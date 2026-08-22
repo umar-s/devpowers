@@ -27,7 +27,7 @@
     {
       "name": "loop-foundry",
       "displayName": "Loop Foundry",
-      "description": "End-to-end loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runner generation → staged autonomy ladder (shadow → gated → autonomous) with measured approval rates. Refuses to build loops where the approach does not apply.",
+      "description": "End-to-end loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runner generation → staged autonomy ladder (shadow → gated → autonomous) with measured approval rates. Refuses to build loops where the approach does not apply. Companion: prediction-protocol — receipts for one-way commands in every tick, required past shadow.",
       "category": "automation",
       "author": {
         "name": "Sergei",
