@@ -10,7 +10,16 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [research-pipeline / voxscribe](https://github.com/umar-s/research-pipeline/releases) ·
 [loop-foundry](https://github.com/umar-s/loop-foundry/releases) ·
 [co-rar](https://github.com/umar-s/co-rar/releases) ·
+[prediction-protocol](https://github.com/umar-s/prediction-protocol/releases) ·
 [premortem](https://github.com/umar-s/premortem/releases).
+
+## 2026-08-22 — prediction-protocol added
+
+- New entry **prediction-protocol** (`umar-s/prediction-protocol`,
+  `plugins/prediction-protocol`, `ref: main`): a fail-closed PreToolUse gate on
+  one-way shell commands plus a `predict` CLI that grades HIT / MISS /
+  INCONCLUSIVE itself; consumers call `"${PREDICT:?}" on`. First release
+  v1.0.0. README table and install list updated.
 
 ## 2026-08-17
 

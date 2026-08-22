@@ -18,6 +18,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 | **[md2pdf](https://github.com/umar-s/md2pdf)** | Markdown → presentable PDF without LaTeX: pandoc → house-style HTML (GitHub typography, IBM Plex, A4) → headless Chromium print-to-pdf. Cyrillic everywhere, mushaf-style right-alignment for Arabic quotes, wide tables kept inside the page margin with per-column widths set from Markdown. | [umar-s/md2pdf](https://github.com/umar-s/md2pdf) |
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
 | **[task-flow](https://github.com/umar-s/task-flow)** | Three skills, one pipeline: **decompose** → **task** → **ci-gate**. `decompose` cuts an epic/feature/spec into dependency-linked tasks (DoD with truths, story points, graph, collision-checked parallelism waves); `task` takes one ticket ingest (declared blast-radius tier — ceremony scales, gates don't) → 2× premortem → TDD with a red-suite baseline, anti-gaming rules and a diff-scoped mutation check → adversarial clean-context code-review → conditional security-review + capability diff → live verify → close with an evidence block of real numbers; `ci-gate` scaffolds the deterministic merge floor — gitleaks secret-scan + tool-agnostic migration-guard + changed-line coverage threshold + protected-branch, every layer failing closed — into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
+| **[prediction-protocol](https://github.com/umar-s/prediction-protocol)** | Prediction before action. A fail-closed `PreToolUse` gate refuses one-way shell commands (migrations, force-push, merge, deploy, restart, remote exec, mutating HTTP, grants/secrets, recursive delete) unless the session holds a receipt for that exact command — hypothesis, a measurement command, a falsifiable claim — and the `predict` CLI opens the receipt, runs the measurement itself and grades HIT / MISS / INCONCLUSIVE into a journal with a refuted-beliefs ledger. Halt at the first miss; the hook never emits `allow`; `task` and `loop-foundry` call `"${PREDICT:?}" on` and get `predict-gate: active\|absent`. | [umar-s/prediction-protocol](https://github.com/umar-s/prediction-protocol) |
 
 ## Install
 
@@ -32,6 +33,7 @@ In Claude Code:
 /plugin install premortem
 /plugin install md2pdf
 /plugin install task-flow
+/plugin install prediction-protocol
 ```
 
 Or via the CLI:
@@ -62,6 +64,7 @@ umar-s/premortem                      # forked plugin repo — plugin at repo ro
 └── .claude-plugin/plugin.json        # ← plain url source
 
 umar-s/task-flow                      # plugin repo — plugin at repo root
+umar-s/prediction-protocol            # plugin repo — plugins/prediction-protocol
 ├── .claude-plugin/plugin.json        # ← plain url source
 ├── skills/{decompose,task,ci-gate}/  # three skills, auto-discovered
 └── templates/ci-gate/                # payload the ci-gate skill scaffolds

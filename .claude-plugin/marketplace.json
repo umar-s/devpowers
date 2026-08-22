@@ -118,6 +118,23 @@
         "source": "url",
         "url": "https://github.com/umar-s/md2pdf.git"
       }
+    },
+    {
+      "name": "prediction-protocol",
+      "displayName": "Prediction Protocol",
+      "description": "Prediction before action: a fail-closed PreToolUse gate that refuses one-way shell commands (migrations, force-push, merge, deploy, restart, remote exec, mutating HTTP, grants/secrets, recursive delete) unless the session holds a receipt for that exact command — hypothesis, a measurement command and a falsifiable claim — and a `predict` CLI that opens the receipt, runs the measurement itself and grades HIT / MISS / INCONCLUSIVE into a journal with a refuted-beliefs ledger. Halt at the first miss; the hook never emits allow; consumers (task-flow, loop-foundry) call `\"${PREDICT:?}\" on` and get `predict-gate: active|absent`.",
+      "category": "workflow",
+      "author": {
+        "name": "Sergei",
+        "email": "sergei.bitsmedia@gmail.com"
+      },
+      "homepage": "https://github.com/umar-s/prediction-protocol",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/umar-s/prediction-protocol.git",
+        "path": "plugins/prediction-protocol",
+        "ref": "main"
+      }
     }
   ]
 }
