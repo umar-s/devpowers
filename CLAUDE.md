@@ -28,9 +28,19 @@ claude plugin validate .
 Каталог версий не хранит, но каждый плагинный репозиторий ведёт их традиционно —
 чтобы версия и прогресс были видны с витрины GitHub, а не только в `plugin.json`:
 
+0. **self-check поставки** — линейка сама есть skill supply chain, и от своих
+   поставок требуется то же, что `task` 6b требует от чужого кода (capability
+   diff): `git diff <prev-tag>..HEAD -- skills/ hooks/ templates/ commands/
+   agents/` + grep по этому диффу на сеть (`curl|wget|fetch|http`), креды
+   (`_API_KEY|process.env|~/.ssh`), `rm -rf`, `eval`, base64. Каждое попадание
+   — названо в changelog этого релиза, не молча;
 1. бамп в `plugin.json` (единственный источник истины);
 2. секция в `CHANGELOG.md` — Keep a Changelog (`Added/Changed/Fixed`) плюс
-   compare-ссылка внизу;
+   compare-ссылка внизу. **Только `Edit` с точным `old_string`, никогда `Write`
+   поверх файла** — агент, перезаписавший CHANGELOG целиком, уже был
+   задокументированным инцидентом. Перед тегом сверить, что бамп покрывает
+   весь дифф с прошлого тега: вторая фича, приехавшая после бампа, остаётся
+   без версии (`scripts/release-check.sh` в task-flow ловит это как DRIFT);
 3. аннотированный тег на коммите, который несёт оба пункта выше;
 4. GitHub Release, тело которого — та самая секция changelog
    (`gh release create <tag> --notes-file … --verify-tag`).
