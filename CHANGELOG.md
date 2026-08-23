@@ -11,7 +11,22 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [loop-foundry](https://github.com/umar-s/loop-foundry/releases) ·
 [co-rar](https://github.com/umar-s/co-rar/releases) ·
 [prediction-protocol](https://github.com/umar-s/prediction-protocol/releases) ·
-[premortem](https://github.com/umar-s/premortem/releases).
+[premortem](https://github.com/umar-s/premortem/releases) ·
+[statusline](https://github.com/umar-s/claude-statusline/releases).
+
+## 2026-08-23 — statusline added
+
+- New entry **statusline** (`umar-s/claude-statusline`, `plugins/statusline`,
+  `ref: main`): the owner's status line packaged as a plugin — model, context
+  bar, 5-hour and 7-day limits, project, branch, MCP count, session time.
+  The repo is a **fork** of `AndyShaman/claude-statusline` (MIT), so upstream's
+  root files stay untouched and the plugin's releases are tagged
+  `plugin-vX.Y.Z`, like `premortem`. Claude Code takes its main `statusLine`
+  from `settings.json` only, so the plugin ships `/statusline install`, which
+  writes a version-agnostic launcher and refuses to replace a `statusLine` it
+  did not write. First release `plugin-v1.0.0`.
+- README: badge count corrected to 9 (it still said 7 after
+  prediction-protocol), table row, install list and repo tree.
 
 ## 2026-08-23 — docs: how the line works
 

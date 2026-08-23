@@ -1,6 +1,6 @@
 # devpowers
 
-[![plugins](https://img.shields.io/badge/plugins-7-0b7285)](#plugins)
+[![plugins](https://img.shields.io/badge/plugins-9-0b7285)](#plugins)
 [![updated](https://img.shields.io/github/last-commit/umar-s/devpowers?label=catalog%20updated&color=0b7285)](CHANGELOG.md)
 [![changelog](https://img.shields.io/badge/changelog-dated-0b7285)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-0b7285)](LICENSE)
@@ -19,6 +19,7 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
 | **[task-flow](https://github.com/umar-s/task-flow)** | Three skills, one pipeline: **decompose** → **task** → **ci-gate**. `decompose` cuts an epic/feature/spec into dependency-linked tasks (DoD with truths, story points, graph, collision-checked parallelism waves); `task` takes one ticket ingest (declared blast-radius tier — ceremony scales, gates don't) → 2× premortem → TDD with a red-suite baseline, anti-gaming rules and a diff-scoped mutation check → adversarial clean-context code-review → conditional security-review + capability diff → live verify → close with an evidence block of real numbers; `ci-gate` scaffolds the deterministic merge floor — gitleaks secret-scan + tool-agnostic migration-guard + changed-line coverage threshold + protected-branch, every layer failing closed — into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
 | **[prediction-protocol](https://github.com/umar-s/prediction-protocol)** | Prediction before action. A fail-closed `PreToolUse` gate refuses one-way shell commands (migrations, force-push, merge, deploy, restart, remote exec, mutating HTTP, grants/secrets, recursive delete) unless the session holds a receipt for that exact command — hypothesis, a measurement command, a falsifiable claim — and the `predict` CLI opens the receipt, runs the measurement itself and grades HIT / MISS / INCONCLUSIVE into a journal with a refuted-beliefs ledger. Halt at the first miss; the hook never emits `allow`; `task` and `loop-foundry` call `"${PREDICT:?}" on` and get `predict-gate: active\|absent`. | [umar-s/prediction-protocol](https://github.com/umar-s/prediction-protocol) |
+| **[statusline](https://github.com/umar-s/claude-statusline)** | A status line installed as a plugin: model + effort + fast mode, a colour-coded context bar with token counts, the 5-hour and 7-day rate limits with time to reset, project and git branch, MCP count, session time — tail segments dropped instead of wrapped when the terminal is narrow. Claude Code takes its main `statusLine` from `settings.json` only, so `/statusline install` writes a version-agnostic launcher (plugin updates need no settings change) and refuses to replace a `statusLine` it did not write. Fork of [AndyShaman/claude-statusline](https://github.com/AndyShaman/claude-statusline). | [umar-s/claude-statusline](https://github.com/umar-s/claude-statusline) |
 
 ## Install
 
@@ -34,6 +35,7 @@ In Claude Code:
 /plugin install md2pdf
 /plugin install task-flow
 /plugin install prediction-protocol
+/plugin install statusline
 ```
 
 Or via the CLI:
@@ -62,6 +64,9 @@ umar-s/loop-foundry                   # plugin repo
 
 umar-s/premortem                      # forked plugin repo — plugin at repo root
 └── .claude-plugin/plugin.json        # ← plain url source
+
+umar-s/claude-statusline              # forked repo — upstream root untouched
+└── plugins/statusline/               # ← git-subdir path (tags plugin-vX.Y.Z)
 
 umar-s/task-flow                      # plugin repo — plugin at repo root
 umar-s/prediction-protocol            # plugin repo — plugins/prediction-protocol
