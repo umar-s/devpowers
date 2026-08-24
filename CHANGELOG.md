@@ -14,6 +14,15 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-08-24 — statusline 1.0.1: the command is `/statusline:setup`
+
+- Plugin commands are registered under a `plugin-name:command` namespace, so
+  1.0.0's `commands/statusline.md` became `/statusline:statusline` — while bare
+  `/statusline`, which the catalog entry and every document named, is **Claude
+  Code's own built-in command**: it reports on the status line and never reaches
+  the plugin. Renamed to `/statusline:setup` in plugin 1.0.1; the entry and the
+  README row here now name the namespaced form. No source or ref change.
+
 ## 2026-08-23 — statusline added
 
 - New entry **statusline** (`umar-s/claude-statusline`, `plugins/statusline`,

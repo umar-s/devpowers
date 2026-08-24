@@ -139,7 +139,7 @@
     {
       "name": "statusline",
       "displayName": "Statusline",
-      "description": "A status line installed as a plugin: model + effort + fast mode, a colour-coded context bar with token counts, the 5-hour and 7-day rate limits with time to reset, project and git branch, MCP server count and session duration — tail segments dropped instead of wrapped when the terminal is narrow. Claude Code takes its main statusLine from settings.json only, so `/statusline install` writes a version-agnostic launcher: updating the plugin updates the script, and an installer that refuses a statusLine it did not write keeps your own configuration safe. Fork of AndyShaman/claude-statusline.",
+      "description": "A status line installed as a plugin: model + effort + fast mode, a colour-coded context bar with token counts, the 5-hour and 7-day rate limits with time to reset, project and git branch, MCP server count and session duration — tail segments dropped instead of wrapped when the terminal is narrow. Claude Code takes its main statusLine from settings.json only, so the plugin ships `/statusline:setup` (namespaced — bare `/statusline` is Claude Code's own built-in command), which writes a version-agnostic launcher: updating the plugin updates the script, and an installer that refuses a statusLine it did not write keeps your own configuration safe. Fork of AndyShaman/claude-statusline.",
       "category": "ui",
       "author": {
         "name": "Sergei",
