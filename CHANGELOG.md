@@ -14,6 +14,19 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-08-24 — statusline moves to its own repository (1.0.2)
+
+- The entry now points at **`umar-s/statusline`** (`plugins/statusline`,
+  `ref: main`). 1.0.0 and 1.0.1 were served from a GitHub *fork* of
+  `AndyShaman/claude-statusline` — a form chosen here without asking, which put
+  the owner's own work under someone else's repository, history and README. It
+  is a status line written for its own sake that reuses parts of upstream's
+  script, so the licence obligation is met the ordinary way instead: both MIT
+  notices in the repo's `LICENSE`, an itemised `NOTICE.md`, and a description
+  that says "parts of the script come from …" rather than "fork of …".
+- Tags in that repo follow the normal `vX.Y.Z` scheme (the fork's
+  `plugin-vX.Y.Z` tags belonged to the fork convention).
+
 ## 2026-08-24 — statusline 1.0.1: the command is `/statusline:setup`
 
 - Plugin commands are registered under a `plugin-name:command` namespace, so
