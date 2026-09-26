@@ -47,9 +47,20 @@ claude plugin install loop-foundry@devpowers
 
 After install, fully restart Claude Code (exit the session and start a new one — slash commands are only registered at session start).
 
+In Codex CLI (0.153+) the same catalog works as is — Codex reads `.claude-plugin/marketplace.json` as a legacy-compatible marketplace and installs the same `git-subdir` entries into its own plugin cache:
+
+```bash
+codex plugin marketplace add umar-s/devpowers
+codex plugin add task-flow@devpowers
+codex plugin add prediction-protocol@devpowers
+codex plugin list
+```
+
+Skills are then listed as `plugin:skill` (`$task-flow:task`, `$co-rar:co-rar`, …). Plugin hooks (prediction-protocol) run only after you review and trust them with `/hooks` in a Codex session. What works today, what each plugin still needs on Codex, and how to run the line across both harnesses — [docs/claude-codex-stack.md](docs/claude-codex-stack.md). `statusline` is Claude Code only.
+
 ## How this repo works
 
-The catalog (`.claude-plugin/marketplace.json`) references each plugin's own repository via `git-subdir` sources pinned to `ref: main` — no version bookkeeping here. When a plugin repo pushes to `main`, the marketplace serves the new state; each plugin's version lives solely in its own `plugin.json`.
+The catalog (`.claude-plugin/marketplace.json`) references each plugin's own repository via `git-subdir` sources pinned to `ref: main` — no version bookkeeping here. When a plugin repo pushes to `main`, the marketplace serves the new state; each plugin's version lives solely in its own `plugin.json`. Codex reads the same file, so one catalog serves both harnesses.
 
 ```
 devpowers/                            # this repo — catalog only

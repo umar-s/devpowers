@@ -14,6 +14,28 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-09-27 — docs: Claude Code + Codex, the two-model stack (spec + manual)
+
+- `docs/claude-codex-stack.md` — what was verified today and what the plan is
+  for running the line on both harnesses. Verified on this host: Codex CLI
+  0.153.4 reads this catalog's `.claude-plugin/marketplace.json` as a
+  legacy-compatible marketplace (`codex plugin marketplace add umar-s/devpowers`),
+  installs the `git-subdir`/`url` entries into its own cache with the version
+  from each plugin's `.claude-plugin/plugin.json`, and lists the skills as
+  `plugin:skill` (`task-flow:task`, …) — no second manifest is needed.
+  Documented gaps that become plugin releases: Codex does not support
+  `permissionDecision: "ask"` (prediction-protocol must deny where it asks),
+  `apply_patch` instead of `Edit/Write`, no `CLAUDE_ENV_FILE`, the premortem
+  fork's skill outside `skills/` is invisible to Codex (needs a
+  `.codex-plugin/plugin.json` overlay), hook trust by hash, the Ubuntu 24.04
+  AppArmor userns restriction that stops Codex's bwrap sandbox outside the
+  desktop app. The stages (prediction-protocol 1.1.0 → task-flow 1.12.0 →
+  loop-foundry 1.2.0 → premortem/co-rar/md2pdf → catalog), the host and
+  project setup, the per-ticket duet with cross-model review and the runner
+  variant are written as step-by-step commands; the acceptance list names
+  what a live Codex session still has to confirm.
+- README: "Install → in Codex CLI". No source or ref change.
+
 ## 2026-08-24 — statusline moves to its own repository (1.0.2)
 
 - The entry now points at **`umar-s/statusline`** (`plugins/statusline`,
