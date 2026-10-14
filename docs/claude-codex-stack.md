@@ -406,11 +406,31 @@ CLAUDE.md            # @AGENTS.md  + только Claude-специфика (п�
 ```
 
 Codex читает `AGENTS.md` (цепочка: `~/.codex/AGENTS.md` → корень → cwd, лимит
-32 KiB `project_doc_max_bytes`); Claude Code разворачивает `@AGENTS.md` при
-загрузке `CLAUDE.md`. Сегодняшняя схема ваших репо (AGENTS.md-указатель «прочитай
-CLAUDE.md», либо симлинк `AGENTS.md → CLAUDE.md`) работает, но стоит вызова
-инструмента на каждую сессию Codex и не даёт `Code Review Rules`. Переворот —
-одноразовый `git mv CLAUDE.md AGENTS.md` + новый `CLAUDE.md` из двух строк.
+32 KiB `project_doc_max_bytes`) и **только** его, когда рядом лежит `CLAUDE.md`;
+Claude Code читает `CLAUDE.md` и разворачивает `@AGENTS.md` при загрузке —
+проверено 2026-10-14 на 2.1.283 / Codex 0.162: в каталоге с обоими файлами
+Claude процитировал маркеры из обоих, Codex — только из `AGENTS.md` ✅.
+
+**Два файла, не один — осознанно.** Claude Code 2.1.283 умеет читать `AGENTS.md`
+напрямую, когда `CLAUDE.md` отсутствует (проверено), но на этом строить нельзя:
+над одним каталогом параллельно работают сессии обоих харнессов, и каждый пишет
+в *свой* файл (`#`-заметки Claude дописывают `CLAUDE.md`, `/init` Codex создаёт
+`AGENTS.md`). Первый же `CLAUDE.md`, появившийся рядом, молча **прячет**
+`AGENTS.md` от Claude — ровно по этой причине superpowers 6.4.2 убрал свой
+`CLAUDE.md`-указатель. Поэтому `CLAUDE.md` существует всегда и первой строкой
+импортирует `@AGENTS.md`; harness-специфика живёт ниже импорта (Claude) и в
+`AGENTS.md` (Codex: sandbox, rules, `$plugin:skill`). Обратный импорт
+невозможен — у Codex нет механизма включения файлов, `AGENTS.md` обязан быть
+самодостаточным.
+
+Параллельные сессии в одном каталоге упираются не в инструкции, а в рабочее
+дерево и индекс git — ответ линейки прежний: один worktree на сессию/тикет
+(§7.2'), а `docs/specs/<TASK>.spec.md` и evidence-файлы — по одному на тикет.
+
+Сегодняшняя схема ваших репо (AGENTS.md-указатель «прочитай CLAUDE.md», либо
+симлинк `AGENTS.md → CLAUDE.md`) работает, но стоит вызова инструмента на каждую
+сессию Codex и не даёт `Code Review Rules`. Переворот — одноразовый
+`git mv CLAUDE.md AGENTS.md` + новый `CLAUDE.md`: `@AGENTS.md` и Claude-специфика.
 
 `## Code Review Rules` в AGENTS.md — то, что штатный ревьюер Codex
 (`codex exec review`, `@codex review` в GitLab-облаке) применяет и цитирует:
