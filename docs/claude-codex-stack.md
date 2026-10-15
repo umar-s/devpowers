@@ -645,7 +645,7 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | Auto-режим Claude ↔ `codex exec` с записью | классификатор отказывает | оркестрирует раннер; интерактивно — обычный режим разрешений |
 | Codex из шелла Claude (или наоборот) | `CLAUDE_*`/`CODEX_*` переменные наследуются вложенным харнессом: его хуки и шелл модели видят чужие `CLAUDE_CODE_SESSION_ID`/`CODEX_SESSION_ID` | хуки решают харнесс по stdin; `predict` при двух id требует `PP_SESSION`; раннер всегда экспортирует `PP_SESSION` |
 | `codex exec -c approval_policy=on-request` | игнорируется: exec всегда `approval: never`, хуки видят `bypassPermissions` | интерактивную клетку (deny вместо ask) проверять в TUI; exec = делегированная сессия, как `claude -p` |
-| Хэш trust после обновления плагина | все хуки плагина «Modified» → молча не работают | `/hooks` → Trust; раннер — `--dangerously-bypass-hook-trust`; алгоритм хэша воспроизводим (факт 17), но запись в чужой `config.toml` — решение владельца |
+| Хэш trust после обновления плагина | хэш покрывает **определение** хука в `hooks.json` (команда, matcher, timeout, statusMessage), а не скрипт, который она запускает: 1.0.3 → 1.1.0 сменил четыре скрипта, trust сохранился ✅ 2026-10-15. Обратная сторона: обновлённый скрипт под прежней строкой команды доверен автоматически — доверие относится к источнику плагина, не к коду | меняется `hooks.json` → `/hooks` → Trust; раннер — `--dangerously-bypass-hook-trust`; алгоритм хэша воспроизводим (факт 17), но запись в чужой `config.toml` — решение владельца |
 | `CLAUDE_PLUGIN_ROOT` в шелле модели на Codex | не задан (только хукам) | `ROOT` по пути `SKILL.md` — task-flow уже так умеет |
 | `project_doc_max_bytes` 32 KiB | длинный AGENTS.md обрежется молча | вынести детали в `docs/`, оставить правила |
 | Codex Security = Platform API key в CI | отдельный счёт | `--max-cost`, `low` effort на MR; или ChatGPT-auth раннера (приватные репо) |
@@ -672,9 +672,9 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 4. `codex exec -p reviewer --json -o /tmp/r.md review --base master </dev/null` в
    `lab`-репо с диффом — отчёт с находкой «silent error swallowing» (у меня
    упёрлось в bwrap).
-5. `codex plugin marketplace upgrade devpowers && codex plugin add
-   prediction-protocol@devpowers` после релиза 1.1.0 → в кэше появляется
-   `1.1.0`, `/hooks` просит новый trust.
+5. ✅ 2026-10-15: `codex plugin marketplace upgrade devpowers && codex plugin add
+   prediction-protocol@devpowers` → `…/cache/devpowers/prediction-protocol/1.1.0`;
+   trust **не** запросил — `hooks.json` не менял определения хуков (см. §9).
 6. `npx @openai/codex-security scan . --diff master --head HEAD --auth chatgpt
    --output-dir /tmp/sec --headless` в `lab`-репо → `findings.json`,
    `coverage.json`; если «access required» — решение про Trusted Access / API-ключ.
