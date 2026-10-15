@@ -633,6 +633,8 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | `project_doc_max_bytes` 32 KiB | длинный AGENTS.md обрежется молча | вынести детали в `docs/`, оставить правила |
 | Codex Security = Platform API key в CI | отдельный счёт | `--max-cost`, `low` effort на MR; или ChatGPT-auth раннера (приватные репо) |
 | Имена скиллов | `/task-flow:task` (Claude) ↔ `$task-flow:task` (Codex) | Harness-раздел в SKILL (S2) |
+| Git-маркетплейс с большим репо (claude-mem ≈ 560 МБ) | Codex клонирует с жёстким лимитом 30 с, по таймауту бросает `git clone` и оставляет `~/.codex/.tmp/marketplaces/.staging/marketplace-upgrade-*` (~720 МБ каждый); фоновый refresh повторяет это на каждом старте — за 2,5 дня 88 каталогов, 61 ГБ ✅ 2026-10-15 | источник плагина — локальный клон маркетплейса Claude (`codex plugin marketplace add ~/.claude/plugins/marketplaces/<name>`): без второго клона, версии в lockstep; обновление — `claude plugin marketplace update <name> && codex plugin add <plugin>@<marketplace>`; staging-каталоги удалить |
+| Доверие хуков по хэшу | после смены версии/маркетплейса хук молча пропускается; в выводе `codex exec` это `hook: <Event> Failed`, хотя скрипт при прямом запуске rc=0 | `codex` → `/hooks` → Trust всех «new / changed»; проверка — `codex exec … 2>&1 \| grep hook:` без `Failed` |
 
 ---
 
