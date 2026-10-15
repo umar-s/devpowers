@@ -14,6 +14,26 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-10-15 — prediction-protocol 1.1.0: the second harness (S1 of the two-model stack)
+
+- **prediction-protocol** entry unchanged in form; the plugin's 1.1.0 release
+  closes the Codex gaps the 2026-09-27 spec named: Codex has no PreToolUse
+  `ask` (a hook that asks is marked failed and the command runs — observed
+  through the new `platform-probe.sh --codex`), so the gate decides the
+  harness per call (`turn_id`/`model` on stdin, `PLUGIN_ROOT` in the hook's
+  environment, `PP_HARNESS` override) and **denies where it asked**, passing a
+  matching receipt silently; file edits arrive as `apply_patch` with the patch
+  in `tool_input.command` and the state guard reads its headers; `PREDICT`
+  reaches the session as SessionStart `additionalContext` where there is no
+  `CLAUDE_ENV_FILE`; `predict` resolves the session from `CODEX_SESSION_ID`
+  as well as `CLAUDE_CODE_SESSION_ID`. Facts that moved into
+  `docs/claude-codex-stack.md` §1/§9: `codex exec` always runs with approval
+  `never` (every exec session is the delegated row; `default` exists only in
+  the TUI/app), a Codex started from a Claude Code shell inherits the
+  `CLAUDE_*` environment into its hooks and its model's shell, and the hook
+  trust hash is reproducible (normalised identity → TOML → sorted JSON →
+  SHA-256). No source or ref change.
+
 ## 2026-09-27 — docs: Claude Code + Codex, the two-model stack (spec + manual)
 
 - `docs/claude-codex-stack.md` — what was verified today and what the plan is

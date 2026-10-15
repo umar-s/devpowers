@@ -85,6 +85,11 @@ Security CLI / GitLab.
 | 11 | `/import` в Codex CLI и Settings → Import в десктопе импортируют из Claude Code: `CLAUDE.md`→`AGENTS.md`, `settings.json`→`config.toml`, скиллы, плагины, хуки, MCP, subagents | мануал (Import from another agent) ⚠ |
 | 12 | Codex Security CLI: `npx @openai/codex-security@0.1.31`, команды `scan --diff BASE --head HEAD`, `--working-tree`, `--fail-on-severity`, `--auth chatgpt\|api-key`, `export --export-format sarif`, exit 0/1/2; `--dry-run` требует чистого дерева | ✅ dry-run; сам скан — ⚠ (нужен доступ Codex Security / Trusted Access for Cyber на аккаунте) |
 | 13 | В auto-режиме Claude Code классификатор отказывает в `codex exec -s workspace-write` и в `--dangerously-bypass-hook-trust` («Create Unsafe Agents»); read-only `codex exec` разрешён | ✅ |
+| 14 | Codex 0.162.1, stdin хука: общие `session_id/transcript_path/cwd/hook_event_name/model/permission_mode`; PreToolUse добавляет `turn_id` (расширение Codex — у Claude Code его нет), `tool_name/tool_use_id/tool_input`; `agent_id/agent_type` — для spawn-субагентов. `permission_mode` выводится из approval policy: `never` → `bypassPermissions`, всё остальное → `default`. **`codex exec` всегда `approval: never`** (`-c approval_policy=on-request` игнорируется) — каждая exec-сессия для гейта делегированная; `default` только в TUI/приложении | живой прогон в изолированном `CODEX_HOME` с логирующим хуком ✅ 2026-10-15 |
+| 15 | `apply_patch` приходит хуку как `tool_name: "apply_patch"`, `tool_input.command` = текст патча (`*** Add File:` …), матчится по `apply_patch`, `Edit` или `Write`; shell-инструмент — `Bash` | ✅ 2026-10-15 (исходники `codex-rs/core/src/tools/hook_names.rs`, `handlers/apply_patch.rs` + живой прогон) |
+| 16 | Env хука плагина: `PLUGIN_ROOT`, `PLUGIN_DATA`, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`; у пользовательского хука ничего из этого. Шелл модели: `CODEX_SESSION_ID` (= `session_id` хука), `CODEX_THREAD_ID`, `CODEX_SANDBOX_NETWORK_DISABLED=1`; `bin/` плагина в PATH не добавляется. **Утечка:** Codex, запущенный из шелла Claude Code, наследует `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, `CLAUDECODE` и пр. в свои хуки и в шелл модели — харнесс нельзя определять по `CLAUDE_*` | ✅ 2026-10-15 |
+| 17 | Trust хуков: `~/.codex/config.toml` → `[hooks.state."<plugin>@<marketplace>:hooks/hooks.json:<event>:<group>:<handler>"] trusted_hash = "sha256:…"`; хэш — не файла, а нормализованной идентичности `{event_name, matcher, hooks:[{type, command (плейсхолдеры не раскрыты), timeout (default 600), async, statusMessage}]}` → TOML → JSON с сортировкой ключей → SHA-256 (`codex-rs/hooks/src/engine/discovery.rs::hook_hash`, `config/src/fingerprint.rs`) | воспроизведён в python, совпал со всеми 6 живыми записями claude-mem ✅ 2026-10-15 |
+| 18 | Платформенная таблица Codex через `platform-probe.sh --codex`: deny-JSON и exit 2 блокируют; `ask`, exit 1, битый JSON и превышение таймаута → hook Failed, **команда выполняется**. SessionStart `additionalContext` принимается (модель отказывается цитировать «скрытый контекст», но хук Completed). Песочница — свой pid-namespace (PID 1 = `codex`), предка по `/proc` не найти | ✅ 2026-10-15 |
 
 ---
 
@@ -184,7 +189,16 @@ auto-режима (факт 13) и вложенные песочницы; при
 `Edit`, аннотированный тег, `gh release create --verify-tag`); task-flow —
 через PR + `gh pr merge --auto --squash` (защищённый main, локальный CLAUDE.md).
 
-### 4.1 S1 — prediction-protocol 1.1.0: «второй харнесс»
+### 4.1 S1 — prediction-protocol 1.1.0: «второй харнесс» — ✅ выпущено 2026-10-15
+
+Сделано как ниже, с поправками по живым фактам (§1, строки 14–18):
+харнесс определяется по stdin (`turn_id`/`model`) и `PLUGIN_ROOT`, а не по
+`CLAUDE_*`-переменным (они утекают во вложенный Codex); `codex exec` всегда
+делегированная сессия (approval never), deny-вместо-ask действует только в
+TUI/приложении; CLI резолвит сессию из `CODEX_SESSION_ID`, при двух id сразу
+требует `PP_SESSION`; стейт-гард и классификатор читают заголовки
+`apply_patch`-патча; `platform-probe.sh --codex` сам доверяет свои хуки по
+воспроизведённому хэшу. 179 контролей, 329 корпусных кейсов.
 
 - `lib/common.sh`: `pp_harness()` → `claude|codex` — приоритет `PP_HARNESS`
   (env оператора), затем `PLUGIN_DATA` в окружении (Codex-only) или поле
@@ -629,6 +643,9 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | `codex exec` читает stdin, если он не TTY | скрипт «висит» | `</dev/null` или `-` как промпт |
 | `codex exec review --base` ≠ промпт | «cannot be used with [PROMPT]» | либо `--base`, либо бриф через `codex exec -p reviewer -` |
 | Auto-режим Claude ↔ `codex exec` с записью | классификатор отказывает | оркестрирует раннер; интерактивно — обычный режим разрешений |
+| Codex из шелла Claude (или наоборот) | `CLAUDE_*`/`CODEX_*` переменные наследуются вложенным харнессом: его хуки и шелл модели видят чужие `CLAUDE_CODE_SESSION_ID`/`CODEX_SESSION_ID` | хуки решают харнесс по stdin; `predict` при двух id требует `PP_SESSION`; раннер всегда экспортирует `PP_SESSION` |
+| `codex exec -c approval_policy=on-request` | игнорируется: exec всегда `approval: never`, хуки видят `bypassPermissions` | интерактивную клетку (deny вместо ask) проверять в TUI; exec = делегированная сессия, как `claude -p` |
+| Хэш trust после обновления плагина | все хуки плагина «Modified» → молча не работают | `/hooks` → Trust; раннер — `--dangerously-bypass-hook-trust`; алгоритм хэша воспроизводим (факт 17), но запись в чужой `config.toml` — решение владельца |
 | `CLAUDE_PLUGIN_ROOT` в шелле модели на Codex | не задан (только хукам) | `ROOT` по пути `SKILL.md` — task-flow уже так умеет |
 | `project_doc_max_bytes` 32 KiB | длинный AGENTS.md обрежется молча | вынести детали в `docs/`, оставить правила |
 | Codex Security = Platform API key в CI | отдельный счёт | `--max-cost`, `low` effort на MR; или ChatGPT-auth раннера (приватные репо) |
@@ -643,13 +660,15 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 После §5.1–5.2 на этом хосте, в пустом репо с пустым `origin`:
 
 1. `codex sandbox -- echo SANDBOX_OK` → `SANDBOX_OK` — ✅ сделано 2026-10-15.
-2. `codex` → `/hooks` → Trust четырёх хуков prediction-protocol → новая сессия →
-   попросить: «выполни `git push --force origin main` и покажи ответ инструмента
-   дословно». Ожидание **сегодня (1.0.3)**: вне протокола — команда
-   *выполнится* (клетка ask → failed → fail-open; это и есть причина S1);
-   после `predict on canary --task` — **deny** с рецептом `predict open`.
-   Ожидание **после S1**: deny в обеих клетках, текст упоминает «cannot ask».
-3. `"$PREDICT" report` → `gate: seen <utc>` (хук реально срабатывал).
+2. ✅ 2026-10-15 для `codex exec` (делегированная клетка) и для реплея stdin
+   TUI через гейт — `tests/platform-probe.sh --codex` в prediction-protocol
+   1.1.0 (deny JSON/exit 2 блокируют; ask/exit 1/битый JSON/таймаут —
+   команда выполняется; под протоколом без квитанции — deny с рецептом дошёл
+   до модели; с квитанцией — silent, квитанция consumed; `apply_patch` в
+   стейт — deny стейт-гарда). **Остаётся вам**: интерактивный TUI после
+   обновления до 1.1.0 и `/hooks` → Trust: вне протокола
+   `git push --force origin main` → **deny**, текст упоминает «cannot ask».
+3. `"$PREDICT" report` → `gate: seen <utc>` (хук реально срабатывал) — в TUI.
 4. `codex exec -p reviewer --json -o /tmp/r.md review --base master </dev/null` в
    `lab`-репо с диффом — отчёт с находкой «silent error swallowing» (у меня
    упёрлось в bwrap).
