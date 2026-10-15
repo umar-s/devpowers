@@ -289,31 +289,41 @@ auto-режима (факт 13) и вложенные песочницы; при
 ### 5.1 Codex CLI из терминала
 
 ```bash
-# 1. бинарь десктоп-бандла в PATH (или поставьте standalone CLI: chatgpt.com/codex/install.sh → ~/.local/bin/codex)
-ln -sfn /usr/lib/chatgpt/resources/codex ~/.local/bin/codex
-codex --version                        # codex-cli 0.153.4
-sudo apt install ripgrep               # codex doctor: "search command could not be verified" — rg нужен модели
+# 1. пакетный CLI (бинарь из бандла ChatGPT умеет только `exec`; интерактивный TUI отвечает
+#    "this CLI has no complete local package" — проверено 2026-10-14)
+npm install -g @openai/codex@latest        # или standalone: chatgpt.com/codex/install.sh → ~/.local/bin/codex
+codex --version                            # codex-cli 0.162.1; тот же ~/.codex, что у десктоп-приложения
+sudo apt install ripgrep                   # codex doctor: "search command could not be verified"
 
-# 2. песочница: Ubuntu 24.04 запрещает userns непрофилированным бинарям — дать codex тот же профиль, что у ChatGPT
+# 2. песочница: Ubuntu 24.04 запрещает userns непрофилированным бинарям — дать нативному бинарю codex
+#    тот же профиль, что у ChatGPT. У npm-установки бинарь лежит внутри nvm-версии Node → путь с глобами.
 sudo tee /etc/apparmor.d/codex-cli >/dev/null <<'APP'
 abi <abi/4.0>,
 include <tunables/global>
 
-profile codex-cli "/usr/lib/chatgpt/resources/codex" flags=(unconfined) {
+profile codex-cli "/home/<user>/.nvm/versions/node/*/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/*/bin/codex" flags=(unconfined) {
   userns,
   include if exists <local/codex-cli>
 }
 APP
 sudo apparmor_parser -r /etc/apparmor.d/codex-cli
-codex sandbox linux -- echo SANDBOX_OK   # ожидание: SANDBOX_OK (сегодня: bwrap: loopback: Failed RTM_NEWADDR)  ⚠
+codex sandbox -- echo SANDBOX_OK           # ✅ 2026-10-15: SANDBOX_OK (до профиля: bwrap: loopback: Failed RTM_NEWADDR)
 codex doctor
 ```
+
+Проверено 2026-10-15: после профиля и `codex sandbox -- …`, и команда модели в
+`codex exec -s read-only` выполняются внутри bwrap. Форма `codex sandbox linux -- …`
+из мануала в 0.162 неверна — слово `linux` уходит в `execvp` и даёт panic
+`Failed to execvp linux`. Многострочный heredoc с `sudo` набирать в настоящем
+терминале, не через `!` в промпте Claude (нет TTY для пароля, кавычки ломаются);
+альтернатива — записать профиль в файл и `sudo install -m 644 <файл> /etc/apparmor.d/codex-cli`.
 
 Без профиля Codex CLI **не выполнит ни одну команду** ни в `read-only`, ни в
 `workspace-write` (обе идут через bwrap); работал бы только
 `--dangerously-bypass-approvals-and-sandbox`, что для билдера неприемлемо.
 Альтернатива системная (`sysctl kernel.apparmor_restrict_unprivileged_userns=0`)
-ослабляет весь хост — не рекомендую.
+ослабляет весь хост — не рекомендую. Standalone-установка кладёт бинарь под
+`~/.codex/packages/standalone/<ver>/…` — профиль тогда на этот путь.
 
 ### 5.2 Маркетплейс и плагины в Codex
 
@@ -630,7 +640,7 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 
 После §5.1–5.2 на этом хосте, в пустом репо с пустым `origin`:
 
-1. `codex sandbox linux -- echo SANDBOX_OK` → `SANDBOX_OK`.
+1. `codex sandbox -- echo SANDBOX_OK` → `SANDBOX_OK` — ✅ сделано 2026-10-15.
 2. `codex` → `/hooks` → Trust четырёх хуков prediction-protocol → новая сессия →
    попросить: «выполни `git push --force origin main` и покажи ответ инструмента
    дословно». Ожидание **сегодня (1.0.3)**: вне протокола — команда
