@@ -101,11 +101,13 @@ for p in "${WANT[@]}"; do
   claude plugin install "$p@$NAME" >/dev/null 2>&1 || die "claude: install $p@$NAME failed"
   if ! grep -Fqx -- "$p" <<<"$not_in_codex"; then
     codex plugin add "$p@$NAME" >/dev/null 2>&1 || die "codex: add $p@$NAME failed"
-  # Refused by the policy is the expected outcome, installed is a mismatch; any other failure
-  # says nothing about the policy: 2.
+  # Refused by the policy is the expected outcome, installed is a mismatch; any other failure —
+  # another message, another plugin or marketplace — says nothing about the policy: 2. The
+  # refusal is matched as the whole line Codex 0.162.1 prints.
   elif codex plugin add "$p@$NAME" > "$W/codex-add.$p" 2>&1; then
     echo installed > "$W/codex.$p"
-  elif grep -Fq "plugin \`$p\` is not available for install" "$W/codex-add.$p"; then
+  elif grep -Fxq -- "Error: plugin \`$p\` is not available for install in marketplace \`$NAME\`" \
+         "$W/codex-add.$p"; then
     echo refused > "$W/codex.$p"
   else
     die "codex: add $p@$NAME failed, and not as refused by policy"

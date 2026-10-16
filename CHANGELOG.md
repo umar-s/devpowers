@@ -45,12 +45,17 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
     prompt has neither the command nor the agents.
   - voxscribe: one skill in both.
   - statusline: a new line form, `<plugin> not-in-codex`. `check-skills.sh` then
-    expects `codex plugin add` to be refused with the policy's own message. An
-    install that succeeds is a mismatch (rc 1); any other failure is rc 2.
+    expects `codex plugin add` to be refused with the policy's own message, matched
+    as the whole line Codex prints for that plugin and this marketplace. An install
+    that succeeds is a mismatch (rc 1); any other failure is rc 2. Codex's review
+    caught the first version matching only a substring, so a refusal naming
+    another marketplace, or a different message containing the same words, would
+    have passed.
 
   Plugin names taken from the contract are checked like the ones from arguments.
-  `test-check-skills.sh` now holds 49 controls. Seven of the 12 new ones fail on the
-  previous script, and each new branch is caught by a mutation. On the real
+  `test-check-skills.sh` now holds 51 controls. Seven of the 14 new ones fail on the
+  previous script, the two for the review finding fail on the first S5 version, and
+  each new branch is caught by a mutation. On the real
   harnesses all nine plugins are ok in both, and the catalog without the policy
   gives `MISMATCH codex statusline`. The contract records what the model is shown,
   not what runs: research-pipeline's pipeline and a voxscribe run on Codex are

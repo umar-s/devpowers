@@ -39,8 +39,17 @@ case "$1 $2" in
   "plugin add") [ "$fail" = codex-add ] && { echo "Error: failed to fetch" >&2; exit 1; }
     p=${3%@*}
     if grep -Fqx -- "$p" "$FAKE/refuse"; then
-      [ "$fail" = refuse-other-name ] && p=x$p   # a refusal, but not of this plugin
-      echo "Error: plugin \`$p\` is not available for install in marketplace \`devpowers\`" >&2; exit 1
+      m=devpowers
+      [ "$fail" = refuse-other-name ] && p=x$p     # a refusal, but not of this plugin
+      [ "$fail" = refuse-other-market ] && m=other  # nor in this marketplace
+      if [ "$fail" = refuse-other-text ]; then
+        echo "Diagnostic: plugin \`$p\` is not available for install because metadata could not be read" >&2
+        exit 1
+      fi
+      # the shape Codex 0.162.1 prints
+      printf 'Error: plugin `%s` is not available for install in marketplace `%s`\n\nCaused by:\n    plugin `%s` is not available for install in marketplace `%s`\n' \
+        "$p" "$m" "$p" "$m" >&2
+      exit 1
     fi
     exit 0 ;;
   "debug prompt-input") [ "$fail" = prompt-input ] && exit 1
@@ -170,6 +179,8 @@ run not-in-codex-installed-skill 1 'premortem not-in-codex' '' '' 'premortem:pre
 REFUSE=premortem run not-in-codex-refused-but-listed 1 'premortem not-in-codex' '' '' 'premortem:premortem' '' premortem
 REFUSE=premortem run not-in-codex-other-failure 2 'premortem not-in-codex' '' '' '' codex-add premortem
 REFUSE=premortem run not-in-codex-wrong-refusal 2 'premortem not-in-codex' '' '' '' refuse-other-name premortem
+REFUSE=premortem run not-in-codex-other-market 2 'premortem not-in-codex' '' '' '' refuse-other-market premortem
+REFUSE=premortem run not-in-codex-other-text 2 'premortem not-in-codex' '' '' '' refuse-other-text premortem
 REFUSE=premortem run not-in-codex-with-codex-skill 2 'premortem not-in-codex
 premortem:premortem both' premortem '' 'premortem:premortem' '' premortem
 REFUSE=premortem run not-in-codex-bad-name 2 'premortem not-in-codex
