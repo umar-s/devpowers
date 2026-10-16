@@ -127,19 +127,19 @@ try:
         raise ValueError("codex debug prompt-input: not a JSON list")
     texts = [c["text"] for m in messages if isinstance(m, dict) and isinstance(m.get("content"), list)
              for c in m["content"] if isinstance(c, dict) and isinstance(c.get("text"), str)]
-    heading, closing = "### Available skills\n", "\n</skills_instructions>"
-    found = sum(t.count("### Available skills") for t in texts)
+    heading, closing = "### Available skills", "</skills_instructions>"
+    found = sum(t.count(heading) for t in texts)
     if found != 1:
-        raise ValueError(f"codex debug prompt-input: '### Available skills' occurs {found} times, expected 1")
-    holders = [t for t in texts if heading in t]
-    if not holders:
-        raise ValueError("codex debug prompt-input: '### Available skills' is not a line of its own")
-    after = "\n" + holders[0].split(heading, 1)[1]
-    if closing not in after:
-        raise ValueError("codex debug prompt-input: the skill list is not closed by </skills_instructions>")
-    lines = after.split(closing, 1)[0].split("\n")[1:]
+        raise ValueError(f"codex debug prompt-input: '{heading}' occurs {found} times, expected 1")
+    lines = next(t for t in texts if heading in t).split("\n")
+    start = next(i for i, l in enumerate(lines) if heading in l)
+    if lines[start] != heading:
+        raise ValueError(f"codex debug prompt-input: '{heading}' is not a line of its own: {lines[start][:80]!r}")
+    if closing not in lines[start + 1:]:
+        raise ValueError(f"codex debug prompt-input: the skill list is not closed by a '{closing}' line")
+    end = lines.index(closing, start + 1)
     entries = set()
-    for line in lines:
+    for line in lines[start + 1:end]:
         m = re.match(r"- (\S+?): \S", line)
         if not m:
             raise ValueError(f"codex debug prompt-input: unexpected line in the skill list {line[:80]!r}")

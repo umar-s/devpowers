@@ -62,6 +62,10 @@ if fail == "prompt-unclosed":
     msgs[0]["content"][0]["text"] = block.replace("\n</skills_instructions>", "")
 if fail == "prompt-two-blocks-one-text":
     msgs[0]["content"][0]["text"] = block + "\n### Available skills\n- premortem:extra: x\n</skills_instructions>"
+if fail == "prompt-heading-prefixed":
+    msgs[0]["content"][0]["text"] = block.replace("### Available skills", "garbage### Available skills")
+if fail == "prompt-closing-prefixed":
+    msgs[0]["content"][0]["text"] = block.replace("</skills_instructions>", "x</skills_instructions>")
 if fail == "prompt-bad-entry":
     msgs[0]["content"][0]["text"] = block.replace("</skills_instructions>", "- no-description\n</skills_instructions>")
 print(json.dumps(msgs))
@@ -136,6 +140,8 @@ run prompt-bad-entry   2 "$CONTRACT2" premortem md2pdf "$both" prompt-bad-entry 
 run prompt-blank-then-extra 2 "$CONTRACT2" premortem md2pdf "$both" prompt-blank-then-extra premortem
 run prompt-unclosed    2 "$CONTRACT2" premortem md2pdf "$both" prompt-unclosed premortem
 run prompt-two-blocks-one-text 2 "$CONTRACT2" premortem md2pdf "$both" prompt-two-blocks-one-text premortem
+run prompt-heading-prefixed 2 "$CONTRACT2" premortem md2pdf "$both" prompt-heading-prefixed premortem
+run prompt-closing-prefixed 2 "$CONTRACT2" premortem md2pdf "$both" prompt-closing-prefixed premortem
 run bad-contract-line  2 'premortem:premortem everywhere' premortem md2pdf "$both" '' premortem
 
 # --local takes the clone's committed HEAD, at the entry's own subdirectory, and leaves the other
