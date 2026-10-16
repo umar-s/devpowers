@@ -12,17 +12,21 @@ trap 'rm -rf "$T"' EXIT
 fails=0
 
 # The fakes read their answers from $FAKE: claude.<plugin> ("a, b" — the `details` list),
-# codex ("plugin:skill" per line — the prompt's skill entries), fail (one step to fail).
+# codex ("plugin:skill" per line — the prompt's skill entries), fail (one step to fail or
+# garble). The fake claude keeps a copy of the marketplace it was given, in $FAKE/market.
 mkdir -p "$T/bin" "$T/badgit"
 cat > "$T/bin/claude" <<'EOF'
 #!/usr/bin/env bash
 fail=$(cat "$FAKE/fail" 2>/dev/null)
 case "$1 $2" in
-  "plugin marketplace") exit 0 ;;
+  "plugin marketplace") cp -r "$4" "$FAKE/market"; exit 0 ;;
   "plugin install") [ "$fail" = claude-install ] && exit 1; exit 0 ;;
-  "plugin details") p=${3%@*}
-    printf 'Fake (%s) 1.0.0\n\nComponent inventory\n  Skills (9)  %s\n  Agents (0)\n' \
-      "$p" "$(cat "$FAKE/claude.$p" 2>/dev/null)"; exit 0 ;;
+  "plugin details") p=${3%@*}; list=$(cat "$FAKE/claude.$p" 2>/dev/null)
+    n=$(tr ',' '\n' <<<"$list" | grep -c '[^ ]')
+    [ "$fail" = details-count ] && n=$((n + 1))
+    [ "$fail" = details-garbled ] && { echo "Fake ($p) 1.0.0"; exit 0; }
+    printf 'Fake (%s) 1.0.0\n\nComponent inventory\n  Skills (%s)  %s\n  Agents (0)\n' "$p" "$n" "$list"
+    exit 0 ;;
 esac
 exit 3
 EOF
@@ -33,6 +37,7 @@ case "$1 $2" in
   "plugin marketplace") exit 0 ;;
   "plugin add") [ "$fail" = codex-add ] && exit 1; exit 0 ;;
   "debug prompt-input") [ "$fail" = prompt-input ] && exit 1
+    [ "$fail" = prompt-no-skills ] && { echo '[]'; exit 0; }
     printf '[{"content":"## Skills'
     while read -r s; do [ -n "$s" ] && printf '\\n- %s: a skill (file: /c/SKILL.md)' "$s"; done < "$FAKE/codex"
     printf '"}]\n'; exit 0 ;;
@@ -94,5 +99,45 @@ run git-init-fails     2 "$CONTRACT2" premortem md2pdf "$both" git-init     prem
 run claude-install     2 "$CONTRACT2" premortem md2pdf "$both" claude-install premortem
 run codex-add          2 "$CONTRACT2" premortem md2pdf "$both" codex-add    premortem
 run prompt-input       2 "$CONTRACT2" premortem md2pdf "$both" prompt-input premortem
+run details-garbled    2 "$CONTRACT2" premortem md2pdf "$both" details-garbled premortem
+run details-count      2 "$CONTRACT2" premortem md2pdf "$both" details-count premortem
+run prompt-no-skills   2 "$CONTRACT2" premortem md2pdf "$both" prompt-no-skills premortem
+run bad-contract-line  2 'premortem:premortem everywhere' premortem md2pdf "$both" '' premortem
+
+# --local takes the clone's committed HEAD, at the entry's own subdirectory, and leaves the other
+# entries as published: a `url` entry (premortem, the repo root) and a `git-subdir` one (co-rar,
+# plugins/co-rar), each clone with an uncommitted edit and an untracked file that must not ship.
+mkclone() {  # <dir> <subdir>
+  "$REAL_GIT" init -q "$1" && mkdir -p "$1/$2" && echo committed > "$1/$2/marker" \
+    && "$REAL_GIT" -C "$1" add -A && "$REAL_GIT" -C "$1" -c user.name=t -c user.email=t@t commit -qm t \
+    && echo dirty > "$1/$2/marker" && echo untracked > "$1/$2/untracked"
+}
+L=$T/case-local-content
+mkdir -p "$L/scripts" "$L/.claude-plugin" "$L/fake" "$L/tmp"
+cp "$CATALOG/.claude-plugin/marketplace.json" "$L/.claude-plugin/"
+cp "$HERE/check-skills.sh" "$L/scripts/"
+printf 'premortem:premortem both\nco-rar:co-rar both\n' > "$L/scripts/expected-skills.txt"
+printf premortem > "$L/fake/claude.premortem"; printf co-rar > "$L/fake/claude.co-rar"
+printf 'premortem:premortem\nco-rar:co-rar\n' > "$L/fake/codex"; : > "$L/fake/fail"
+if mkclone "$T/pm" . && mkclone "$T/cr" plugins/co-rar \
+   && FAKE=$L/fake PATH=$T/bin:$PATH TMPDIR=$L/tmp bash "$L/scripts/check-skills.sh" \
+        --local premortem="$T/pm" --local co-rar="$T/cr" premortem co-rar >/dev/null 2>&1 \
+   && python3 - "$CATALOG/.claude-plugin/marketplace.json" "$L/fake/market" <<'EOF'
+import json, pathlib, sys
+pub = {p["name"]: p for p in json.load(open(sys.argv[1]))["plugins"]}
+m = pathlib.Path(sys.argv[2])
+got = {p["name"]: p for p in json.load(open(m / ".claude-plugin/marketplace.json"))["plugins"]}
+assert got["premortem"]["source"] == "./local/premortem", got["premortem"]["source"]
+assert got["co-rar"]["source"] == "./local/co-rar/plugins/co-rar", got["co-rar"]["source"]
+for name in pub:
+    if name not in ("premortem", "co-rar"):
+        assert got[name] == pub[name], name
+for path in ("local/premortem/marker", "local/co-rar/plugins/co-rar/marker"):
+    assert (m / path).read_text() == "committed\n", path
+    assert not (m / path).with_name("untracked").exists(), path
+EOF
+then echo "pass  local-content (HEAD, subdirectory, neighbours untouched)"
+else echo "FAIL  local-content"; fails=$((fails + 1))
+fi
 
 [ "$fails" -eq 0 ] && echo "all controls pass" || { echo "$fails control(s) failed"; exit 1; }

@@ -81,31 +81,66 @@ git -C "$W/market" -c user.name=check -c user.email=check@localhost commit -qm c
 
 claude plugin marketplace add "$W/market" >/dev/null 2>&1 || die "claude: marketplace add failed"
 codex plugin marketplace add "$W/market" >/dev/null 2>&1 || die "codex: marketplace add failed"
-: > "$W/claude.seen"
 for p in "${WANT[@]}"; do
   claude plugin install "$p@$NAME" >/dev/null 2>&1 || die "claude: install $p@$NAME failed"
   codex plugin add "$p@$NAME" >/dev/null 2>&1 || die "codex: add $p@$NAME failed"
-  details=$(claude plugin details "$p@$NAME" 2>&1) || die "claude: details $p@$NAME failed"
-  sed -n 's/^ *Skills ([0-9]*) *//p' <<<"$details" | tr ',' '\n' \
-    | awk -v p="$p" 'NF {gsub(/ /, ""); print p ":" $0}' >> "$W/claude.seen"
+  claude plugin details "$p@$NAME" > "$W/claude.$p" 2>&1 || die "claude: details $p@$NAME failed"
 done
-prompt=$(cd "$W/cwd" && codex debug prompt-input x </dev/null 2>/dev/null) || die "codex: debug prompt-input failed"
-grep -oE '\\n- [A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+: ' <<<"$prompt" \
-  | sed -E 's/^\\n- //; s/: $//' > "$W/codex.seen" || true
+(cd "$W/cwd" && codex debug prompt-input x </dev/null) > "$W/codex.prompt" 2>/dev/null \
+  || die "codex: debug prompt-input failed"
 
+# Reading the inventories and comparing, in one place: an inventory that cannot be read or does
+# not have the expected shape is "could not run" (2) — never an empty list that passes or fails.
 rc=0
-for p in "${WANT[@]}"; do
-  for h in claude codex; do
-    want=$(awk -v p="$p" -v h="$h" '!/^#/ && NF && index($1, p ":") == 1 && ($2 == "both" || $2 == h) {print $1}' "$EXPECTED" | sort -u | paste -sd' ')
-    got=$(grep -E "^$p:" "$W/$h.seen" | sort -u | paste -sd' ' || true)
-    if [ "$want" = "$got" ]; then
-      echo "ok        $h  $p  [${got:-none}]"
-    else
-      echo "MISMATCH  $h  $p  expected [${want:-none}]  got [${got:-none}]"; rc=1
-    fi
-  done
-done
-unchecked=$(python3 -c 'import json,sys; print(" ".join(p["name"] for p in json.load(open(sys.argv[1]))["plugins"]))' \
-  "$CATALOG/.claude-plugin/marketplace.json" | tr ' ' '\n' | grep -vxF -f <(printf '%s\n' "${CONTRACT[@]}") | paste -sd' ' || true)
-[ -z "$unchecked" ] || echo "unchecked (not in the contract): $unchecked"
+python3 - "$EXPECTED" "$CATALOG/.claude-plugin/marketplace.json" "$W" "${WANT[@]}" <<'EOF' || rc=$?
+import json, re, sys
+try:
+    expected_path, catalog_path, work, want = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
+    expected, contract = {}, set()
+    for line in open(expected_path, encoding="utf-8"):
+        f = line.split()
+        if not f or f[0].startswith("#"):
+            continue
+        if len(f) != 2 or f[1] not in ("both", "claude", "codex") or ":" not in f[0]:
+            raise ValueError(f"bad contract line: {line.strip()!r}")
+        plugin = f[0].split(":", 1)[0]
+        contract.add(plugin)
+        for h in ("claude", "codex"):
+            expected.setdefault((plugin, h), set())
+            if f[1] in ("both", h):
+                expected[(plugin, h)].add(f[0])
+    seen = {}
+    for p in want:
+        # "  Skills (3)  ci-gate, decompose, task" — the count guards against a shortened list
+        m = re.search(r"^\s*Skills \((\d+)\)[ \t]*(.*)$", open(f"{work}/claude.{p}", encoding="utf-8").read(), re.M)
+        if not m:
+            raise ValueError(f"claude plugin details {p}: no 'Skills (N)' line")
+        names = [s.strip() for s in m.group(2).split(",") if s.strip()]
+        if len(names) != int(m.group(1)):
+            raise ValueError(f"claude plugin details {p}: Skills ({m.group(1)}) lists {len(names)}")
+        seen[(p, "claude")] = {f"{p}:{n}" for n in names}
+    prompt = open(f"{work}/codex.prompt", encoding="utf-8").read()
+    if "## Skills" not in prompt:
+        raise ValueError("codex debug prompt-input: no '## Skills' section")
+    entries = set(re.findall(r"\\n- ([A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+): ", prompt))
+    for p in want:
+        seen[(p, "codex")] = {e for e in entries if e.startswith(p + ":")}
+    plugins = [x["name"] for x in json.load(open(catalog_path, encoding="utf-8"))["plugins"]]
+except Exception as e:
+    print(f"check-skills: cannot read the inventories: {e}", file=sys.stderr)
+    sys.exit(2)
+rc = 0
+for p in want:
+    for h in ("claude", "codex"):
+        exp, got = " ".join(sorted(expected[(p, h)])), " ".join(sorted(seen[(p, h)]))
+        if exp == got:
+            print(f"ok        {h:<6}  {p}  [{got or 'none'}]")
+        else:
+            print(f"MISMATCH  {h:<6}  {p}  expected [{exp or 'none'}]  got [{got or 'none'}]")
+            rc = 1
+unchecked = [x for x in plugins if x not in contract]
+if unchecked:
+    print("unchecked (not in the contract): " + " ".join(unchecked))
+sys.exit(rc)
+EOF
 exit $rc
