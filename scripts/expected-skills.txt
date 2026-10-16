@@ -3,9 +3,9 @@
 # Or <plugin> not-in-codex: Codex must refuse to install the plugin (its catalog entry carries
 # "policy": {"installation": "NOT_AVAILABLE"}); its Claude skills are its `claude` lines, if any.
 # A plugin with no line here is reported as unchecked, never as passing.
-# This is what the model is shown, not what runs there: research-pipeline's skills are listed in
-# Codex, but its pipeline is a Claude command (listed by Claude as a skill) driving Claude
-# subagents — docs/claude-codex-stack.md, S6.
+# This is what the model is shown, not what runs there: that the pipeline behind
+# research-pipeline:research-pipeline runs end to end in Codex is a live check, not this
+# contract — docs/claude-codex-stack.md, S6.
 
 task-flow:ci-gate both
 task-flow:decompose both
@@ -27,6 +27,6 @@ research-pipeline:search-safeguard both
 research-pipeline:silence-protocol both
 research-pipeline:synthesis both
 research-pipeline:yaml-repair both
-research-pipeline:research-pipeline claude
+research-pipeline:research-pipeline both
 voxscribe:voxscribe both
 statusline not-in-codex

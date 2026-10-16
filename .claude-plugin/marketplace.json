@@ -10,7 +10,7 @@
     {
       "name": "research-pipeline",
       "displayName": "Research Pipeline",
-      "description": "Multi-phase parallel research pipeline — decompose topic → research aspects in parallel → synthesize → quality gate → grounded report. Includes source tiering, slop detection, git-based checkpointing, and WebSearch/Exa backends. In Codex only the skills load: the pipeline itself — the /research-pipeline:research-pipeline command and its subagents — runs in Claude Code.",
+      "description": "Multi-phase parallel research pipeline — decompose topic → research aspects in parallel → synthesize → quality gate → grounded report. Includes source tiering, slop detection, git-based checkpointing, and WebSearch/Exa backends.",
       "category": "research",
       "author": {
         "name": "Sergei",

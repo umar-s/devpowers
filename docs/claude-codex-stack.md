@@ -114,6 +114,12 @@ Security CLI / GitLab.
 | 34 | `uv run` в песочнице `workspace-write`: `~/.cache/uv` только на чтение → `Could not acquire lock … Read-only file system`; с `UV_CACHE_DIR` в cwd — нет сети на загрузку зависимостей. Скрипты premortem (`uv run scripts/cli.py …`) на Codex идут только с эскалацией; голый `python3` проходит, если зависимости уже стоят в системном Python | ✅ 2026-10-16 |
 | 35 | Codex 0.162.1 читает у записи legacy-маркетплейса `.claude-plugin/marketplace.json` поле `"policy": {"installation": "NOT_AVAILABLE"}`: `codex plugin add statusline@devpowers` → ``Error: plugin `statusline` is not available for install in marketplace `devpowers` ``, rc 1; в `codex plugin list` запись остаётся (`not installed`). Уже установленный плагин после появления политики остаётся `installed, enabled`. Claude Code 2.1.301: `claude plugin validate` → `Unknown field 'policy'. Claude Code ignores it at load time`, «passed with warnings», rc 0; `claude plugin install` ставит | лаборатории с маркетплейсом по локальному пути в изолированных `CLAUDE_CONFIG_DIR`/`CODEX_HOME` ✅ 2026-10-16 |
 | 36 | Инвентари расходятся на командах. Claude `plugin details` относит к Skills команду из автообнаруженного `commands/` (research-pipeline: `Skills (13)`, среди них `research-pipeline`), а команду из поля манифеста `"commands": ["./commands/setup.md"]` — нет (statusline: `Skills (0)`); причина не установлена. В выводе `codex debug prompt-input` нет ни команды research-pipeline, ни имён его `agents/*.md` — только 12 скиллов. В пустом `CODEX_HOME` тот же вывод перечисляет и личные скиллы из `~/.agents/skills` (без префикса плагина) — `check-skills.sh` фильтрует по `<plugin>:` | `check-skills.sh`, `claude plugin details`, `codex debug prompt-input` ✅ 2026-10-16 |
+| 37 | Почему у команды research-pipeline не было входа в Codex (к факту 36). Codex 0.162.1 при установке legacy-плагина переделывает `commands/*.md` в скиллы `source-command-<имя>` (каталог `.codex-plugin/migrated-command-skills/`). Команду он пропускает, если в теле есть `$ARGUMENTS`, `$<цифра>`, `{{…}}`, `` !` `` или `@токен`, если во frontmatter нет `description` или если отрендеренный скилл больше 4000 байт. В команде research-pipeline был `$ARGUMENTS`. Когда её перенесли в `skills/research-pipeline/SKILL.md`, `research-pipeline:research-pipeline` стал виден в обоих харнессах (13 скиллов в каждом) | исходники `core-plugins/src/command_migration*.rs` (rust-v0.162.1) + `check-skills.sh --local` ✅ 2026-10-16 |
+| 38 | Claude Code 2.1.301 подставляет в тело SKILL.md плагина `$ARGUMENTS`, `${CLAUDE_PLUGIN_ROOT}` (корень плагина) и `${CLAUDE_SKILL_DIR}`. Если `$ARGUMENTS` в тексте нет, аргументы дописываются строкой `ARGUMENTS: <args>`. Codex не подставляет ничего (факт 32): `${CLAUDE_PLUGIN_ROOT}` модель видит буквально, в шелле переменная не задана | lab-плагин `--plugin-dir`, haiku ✅ 2026-10-16 |
+| 39 | Субагенты Codex 0.162.1: `multi_agent` — stable, включён. Инструменты: `collaboration.spawn_agent` (`task_name`, `message`, `fork_turns`; `model`/`reasoning_effort` — только при `fork_turns: "none"`), `wait_agent`, `followup_task`, `send_message`, `interrupt_agent`, `list_agents`. Промпт модели: «4 available concurrency slots … including you», общий cwd и файловая система; «Do not spawn sub-agents unless the user or applicable AGENTS.md/skill instructions explicitly ask» — то есть разрешение даёт сам скилл. Субагент с `fork_turns: "none"` наследует модель, песочницу и cwd, веб-поиск у него есть. Роли агентов (`agent_type`) Codex берёт только из config-слоёв (`<config folder>/agents/*.toml`, `[agents]`), плагин их поставлять не может. Субагент, которому передали путь к брифу `agents/*.md`, роль не требует | `codex debug prompt-input`, `codex exec -s read-only` + rollouts, исходники `agent-roles`, `core-plugins/manifest.rs` ✅ 2026-10-16 |
+| 40 | Веб-поиск Codex 0.162.1 в `codex exec`: `tools.web__run` внутри `functions.exec` — `search_query`, затем `open` по `ref_id` (страница открыта). Режим: `web_search` из `config.toml`, если задан; иначе `cached` (индекс, не живая сеть); под full access предпочитается `live` (`resolve_web_search_mode*`, тест «read-only policy should default web_search to cached») | rollouts корня и субагента + исходники ✅ 2026-10-16 |
+| 41 | `codex sandbox -P :workspace`: `.git` read-only даже у репозитория внутри записываемого корня (`git add` → `Unable to create '…/.git/index.lock': Read-only file system`, то же у `commit` и `tag`). `TMPDIR` не задан, `/tmp` песочницы — это `/tmp` хоста (файл виден снаружи). `$HOME` и его подкаталоги (`~/Project`, `~/.cache` проверены) — read-only; прочие пути вне workspace не мерились | ✅ 2026-10-16 |
+| 42 | voxscribe 2.0.0 в `codex sandbox -P :workspace` (сеть off, faster-whisper 1.2.1, `large-v3` в HF-кэше): список папки, lecture по `.wav` 8.6 с (27.7 с wall) и по `.mp4` (ffmpeg внутри) — rc 0, текст распознан; `--out-dir` внутри workspace — rc 0. Модели нет в кэше (`--model tiny`) → `RuntimeError: Unable to open file 'model.bin' in model 'tiny'`, rc 1 | ✅ 2026-10-16 |
 
 ---
 
@@ -201,8 +207,8 @@ auto-режима (факт 13) и вложенные песочницы; при
 | **co-rar** | skill | виден ✅, чистая рамка | payload без харнесс-специфики → релиза нет; README «In Codex» (`co-rar@co-rar`, `co-rar@devpowers`, `$co-rar:co-rar`), в `CLAUDE.md` — проверка без модели | **S4 ✅ docs, без версии** |
 | **md2pdf** | skill + scripts | виден ✅; в Quick start захардкожен `~/.claude/skills/md2pdf/scripts/md2pdf.py` — неверен в **обоих** харнессах для установленного плагина | `<SKILL_DIR>/scripts/md2pdf.py` (факт 32); на Codex — запуск вне песочницы с первой попытки (факт 33); предупреждение snap и о скрытых каталогах; первые тесты | **S4 → 1.3.1 ✅** |
 | **devpowers** (каталог) | marketplace.json, README, docs, `scripts/check-skills.sh` | читается ✅ | README «Install → Codex» и матрица «Claude Code and Codex», этот документ, CHANGELOG; statusline — `policy.installation: NOT_AVAILABLE`; контракт видимости скиллов на все 9 плагинов; второй манифест `.agents/plugins/marketplace.json` **не нужен** | **S0 ✅, S5 ✅** |
-| **research-pipeline** | skills, `agents/*.md` (Claude subagents), `commands/`, `workflows/` | 12 скиллов видны ✅; команды `/research-pipeline:research-pipeline` и агентов в промпте нет (факт 36); агенты — Claude-формат, у Codex агенты — `.codex/agents/*.toml` на уровне проекта, не плагина | отдельный этап: генерация `.codex/agents/*.toml` в проект пользователя + harness-раздел в manager-research | отложено (S6) |
-| **voxscribe** | skills + python scripts | скилл виден ✅; не прогонялся (скрипты запускаются из shell) | «fan out to subagents» → harness-заметка | отложено (S6) |
+| **research-pipeline** | skills, `agents/*.md` (брифы субагентов), `workflows/`; до 1.2.0 — `commands/` | до 1.2.0 видны 12 скиллов, входа в пайплайн нет: команду с `$ARGUMENTS` Codex не мигрирует (факты 36–37) | точка входа — скилл `skills/research-pipeline/SKILL.md`; раздел **Harness** в manager-research: `${CLAUDE_PLUGIN_ROOT}` → корень от пути скилла, `Skill` → соседний SKILL.md, `Task` → `spawn_agent` (`fork_turns: "none"`) волнами по слотам, веб-поиск Codex (`cached`/`live`), `.git` read-only для чекпоинтов. `.codex/agents/*.toml` не понадобились: бриф передаётся путём (факт 39) | **S6 → 1.2.0 ✅** |
+| **voxscribe** | skill + python scripts | до 2.1.0 скилл виден, но путь к `transcribe.sh` — `${CLAUDE_PLUGIN_ROOT}` и glob по `~/.claude/plugins` — в Codex не находится | путь от каталога SKILL.md; fan-out по харнессам; «In the Codex sandbox»: lecture с моделью из кэша идёт, первая загрузка модели и запись вне workspace — эскалация (факт 42); HF-preflight диалога без сети предупреждает и продолжает; fan-out моделью Codex и диалог не прогонялись | **S6 → 2.1.0 ✅** |
 | **statusline** | Claude `statusLine`: команда + SessionStart-хук | **N/A** — команда Claude Code и хук, читающий его `settings.json` и советующий `/statusline:setup` | запись каталога с `"policy": {"installation": "NOT_AVAILABLE"}` — Codex в установке отказывает (факт 35); README «Claude Code only»; в контракте `statusline not-in-codex` | **S5 ✅** |
 
 ---
@@ -443,6 +449,48 @@ skills и без файлов настроек; Codex-ревьюер с `--ignor
     харнесс, отвергающий каталог при `marketplace add` (будущий Claude Code и поле
     `policy`); теперь rc 2 и ни одной установки. 53 офлайн-контроля.
 
+### 4.6 S6 — research-pipeline 1.2.0, voxscribe 2.1.0 — ✅ выпущено 2026-10-16
+
+План был такой: генерировать `.codex/agents/*.toml` в проект пользователя, добавить
+harness-раздел в manager-research, прогнать voxscribe. Что вышло и чем отличается:
+
+- **Вход в пайплайн — скилл, а не команда.** Codex мигрирует команды плагина в скиллы,
+  но шаблон с `$ARGUMENTS` пропускает молча (факт 37), поэтому входа не было. Теперь
+  это `skills/research-pipeline/SKILL.md`, а `commands/` больше нет. В Claude Code
+  вызов тот же — `/research-pipeline:research-pipeline …`; без `$ARGUMENTS` аргументы
+  приходят строкой `ARGUMENTS:` (факт 38). В Codex вызов — `$research-pipeline:research-pipeline …`,
+  аргументы берутся из сообщения. Контракт `check-skills`:
+  `research-pipeline:research-pipeline both` (был `claude`).
+- **`.codex/agents/*.toml` не понадобились.** Плагин роли поставлять не может, а
+  писать их в проект пользователя значило бы трогать чужой конфиг (факт 39). Схема из
+  Claude Code — субагент общего назначения плюс путь к брифу `agents/*.md` —
+  переносится как есть: `spawn_agent` с `fork_turns: "none"` и тем же текстом. Раздел
+  **Harness** в manager-research сопоставляет конструкции Claude Code с Codex:
+  `${CLAUDE_PLUGIN_ROOT}` — корень от пути скилла, абсолютным путём; `Skill` — соседний
+  SKILL.md; `Task` — `spawn_agent` волнами по слотам (4 вместе с корнем); `TaskOutput` —
+  `wait_agent`; веб-поиск Codex (`cached`/`live`, факт 40); Exa — не проверен;
+  чекпоинты — `.git` read-only (факт 41).
+- **voxscribe 2.1.0**: `transcribe.sh` ищется от каталога SKILL.md, как в md2pdf
+  (glob по `~/.claude/plugins` в Codex не находил ничего, а в Claude Code брал
+  произвольную версию). Fan-out описан для обоих харнессов. Раздел «In the Codex
+  sandbox» — только измеренное (факт 42).
+- **Тесты в репозитории** (в установленный плагин не попадают), 24 офлайн-теста на stdlib.
+  `tests/test_harness_contract.py` — 16 тестов: точка входа, пути, покрытие Harness,
+  чтение слотов вместо зашитого числа, предупреждение о `cached`. На дереве до изменения
+  — 12 FAIL и 3 ERROR; каждая из двенадцати мутаций поймана. `tests/harness-probe.sh` —
+  живой, по флагу: оба харнесса, разбор аргументов, спавн, поиск, открытие страницы.
+  Результат — 11/11 PASS. Доказательства Codex читает `tests/probe_rollouts.py`: веб-вызов
+  засчитывается только по результату инструмента — по `call_id`, с его citation-id — и
+  только у субагента, которого породил корень. Его покрывают 8 офлайн-тестов, среди них
+  подделка из ревью. Конфиг пользователя зонд не трогает, его `CODEX_HOME` одноразовый.
+- Ревью: Codex через `xreview.sh`. Раунд 1: HF-preflight диалога объявлен требующим
+  эскалации, хотя без сети он предупреждает и продолжает; непрогнанный fan-out не
+  оговорён; тестов нет. Раунд 2: тесты не держат оговорки о слотах и `cached`, а зонд
+  засчитывал поиск по тексту вызова (`text("search_query open:")` проходил). Раунд 3:
+  измеренный read-only `$HOME` обобщён до «вне workspace», хотя `/tmp` записываем.
+- Не сделано: блокирует классификатор auto-режима (факт 13), за пользователем — §10
+  п. 11.
+
 ---
 
 ## 5. Пошагово: хост (один раз)
@@ -496,8 +544,8 @@ codex plugin add loop-foundry@devpowers
 codex plugin add co-rar@devpowers
 codex plugin add md2pdf@devpowers
 codex plugin add premortem@devpowers                     # скилл виден с упаковки 1.0.2 (S4)
-codex plugin add research-pipeline@devpowers             # только скиллы: пайплайн — команда и агенты Claude (S6)
-codex plugin add voxscribe@devpowers                     # скилл виден; в Codex не прогонялся (S6)
+codex plugin add research-pipeline@devpowers             # с 1.2.0: $research-pipeline:research-pipeline, исследователи — субагенты Codex (S6)
+codex plugin add voxscribe@devpowers                     # с 2.1.0: скрипт от пути скилла; lecture в песочнице с моделью из кэша (S6)
 # statusline@devpowers — отказ политикой каталога (S5); стоявший раньше: codex plugin remove statusline@devpowers
 codex plugin list
 ```
@@ -808,7 +856,7 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | `permissionDecision: ask` не поддерживается в Codex | до S1 гейт на Codex fail-open в клетках «ask» — one-way вне протокола **выполняется** | S1: deny; до S1 — на Codex всегда `predict on` перед one-way (тогда клетка «без квитанции» = deny уже сейчас) |
 | Trust хуков по хэшу | после каждого обновления плагина хуки молча не работают до `/hooks` → Trust | `predict report` → `gate: never` = хук не срабатывал; раннер — флаг bypass |
 | bwrap + AppArmor userns (Ubuntu 24.04) | любая команда модели в CLI-Codex падает | профиль §5.1 (sudo, один раз, и на раннер-хосте) |
-| `.git`/`.codex`/`.agents` read-only в `workspace-write` | `git commit` = эскалация; под `never` — ошибка | `.rules` §5.3 или интерактивные approvals |
+| `.git`/`.codex`/`.agents` read-only в `workspace-write` | `git add`/`commit`/`tag` = эскалация (`.git` — измерено, факт 41); под `never` — ошибка | `.rules` §5.3 или интерактивные approvals |
 | Сеть off в `workspace-write` | `git push`/`pip`/`glab` — эскалация | `[sandbox_workspace_write] network_access = true` |
 | `~/.local/state` read-only в `workspace-write` | `predict open`/`close` из шелла Codex-модели падают — квитанцию не открыть, каждый one-way = deny | так и оставить: `--add-dir` на корень состояния даёт модели выключить гейт вычисленным путём, незаметно (факт 26). One-way — после прогона руками или в `deliver.sh` лупа; квитанции в сессии — только у Claude (там гейт — свидетель, не граница) |
 | Отказ хука в `codex exec --json` | в потоке событий его **нет** — grep по `command_execution` даёт пустой `gate_denies` при реальных отказах | читать отказы у инструмента: `predict status --json` → `denies` (prediction-protocol ≥ 1.2.0 пишет каждый отказ из хуков); stderr не разбирать — многострочную запись команда может подделать (5 раундов ревью loop-foundry 1.2.0) |
@@ -839,6 +887,10 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | `uv run` в песочнице Codex | `~/.cache/uv` read-only, сети нет → скрипт не стартует (premortem) | эскалация (правило префикса `uv run`); **не** давать песочнице писать в кэш uv через `writable_roots`: модель подложит пакет, который потом исполнится вне песочницы |
 | Политика `NOT_AVAILABLE` в записи каталога | Codex отказывает только новым установкам: стоявший плагин остаётся `installed, enabled` (факт 35); Claude Code поле игнорирует с предупреждением `validate` | после введения политики — `codex plugin remove <plugin>@<marketplace>` руками; `Unknown field 'policy'` — единственное ожидаемое предупреждение (CLAUDE.md каталога) |
 | Тег релиза без бампа `plugin.json` | оба харнесса ставят старую версию (premortem `plugin-v1.0.1` стоял как 1.0.0), кэш `…/<plugin>/<старая версия>/` | перед тегом сверить версию в `plugin.json` с тегом (у task-flow это делает `scripts/release-check.sh`, у форков — руками) |
+| Команда плагина с `$ARGUMENTS` (или `$1`, `{{…}}`, `` !` ``, `@файл`) | в Codex её нет ни командой, ни скиллом: миграция при установке её молча пропускает (факт 37) — у research-pipeline до 1.2.0 так пропал вход в пайплайн | точку входа делать скиллом `skills/<name>/SKILL.md`: в Claude Code он вызывается тем же `/plugin:name`, аргументы приходят строкой `ARGUMENTS:` (факт 38), в Codex остаются в сообщении |
+| `${CLAUDE_PLUGIN_ROOT}` в тексте скилла | Claude Code подставляет, Codex — нет (факт 38): модель видит литерал, в шелле переменной нет, и субагент получает битый путь | путь от каталога SKILL.md (`<SKILL_DIR>`, корень плагина — `../..`), субагенту — абсолютным путём; research-pipeline 1.2.0 и voxscribe 2.1.0 так и делают |
+| Веб-поиск Codex по умолчанию | `cached`: индекс, не живая сеть (факт 40) — исследование пропускает свежее | `web_search = "live"` в `config.toml` |
+| Параллельные субагенты в Codex | по умолчанию 4 слота вместе с корнем (факт 39): «все исследователи одним сообщением» из Claude Code не помещаются | волнами по свободным слотам; число слотов брать из инструкций multi-agent, не зашивать |
 
 ---
 
@@ -889,6 +941,16 @@ codex-security; фаза 8 task считает пайплайн зелёным �
     контракту в обоих харнессах, statusline в Codex — `not installable`; каталог без
     политики даёт MISMATCH. statusline 1.0.2, поставленный в `~/.codex` до S5, удалён
     `codex plugin remove statusline@devpowers` — ✅ 2026-10-16 (`not installed`, кэша нет).
+11. S6 — ✅ 2026-10-16 без записи: `check-skills.sh` (13 скиллов research-pipeline в
+    обоих харнессах), `tests/harness-probe.sh` в research-pipeline (11/11), voxscribe в
+    `codex sandbox -P :workspace`. **Вам**, в интерактивном Codex с `web_search = "live"`
+    и после `codex plugin marketplace upgrade` + `codex plugin add research-pipeline@…`:
+    `$research-pipeline:research-pipeline quick "<тема>"` в пустом git-репозитории —
+    в `artifacts/<session>/` появляются `plan.yaml`, три `aspects/*.yaml`,
+    `synthesis.yaml`, `quality.yaml`, `FINAL_REPORT.md`. Исследователи идут субагентами
+    (не больше 3 одновременно), чекпоинты просят эскалацию на `git`.
+    `$voxscribe:voxscribe` на папке из двух коротких записей — по субагенту на файл,
+    `.md` рядом с файлами. По желанию: диалог (`HF_TOKEN`) и Exa в Codex.
 
 Лабораторный каталог этой сессии (изолированный `CODEX_HOME` с
 установленными плагинами, `lab`-репо с диффом, `lab-market` с двумя

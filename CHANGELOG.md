@@ -14,6 +14,35 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-16 — research-pipeline 1.2.0 and voxscribe 2.1.0 run in Codex (S6 of the two-model stack)
+
+- **research-pipeline 1.2.0** ([release](https://github.com/umar-s/research-pipeline/releases/tag/research-pipeline-v1.2.0)):
+  the pipeline's entry point is now a skill. Codex 0.162.1 turns plugin
+  commands into skills at install, but it silently skips any command that uses
+  `$ARGUMENTS`, so until now Codex had only the 12 building-block skills.
+  Now both harnesses list `research-pipeline:research-pipeline`. Claude Code
+  calls it as before, `/research-pipeline:research-pipeline …`; in Codex it is
+  `$research-pipeline:research-pipeline …`. The orchestrator gained a Harness
+  section: in Codex the researchers are subagents (`spawn_agent`) that get the
+  absolute path of their brief. No `.codex/agents/*.toml` roles are written into
+  the user's project. Search is Codex's own web search, `cached` unless
+  `web_search = "live"`.
+- **voxscribe 2.1.0** ([release](https://github.com/umar-s/research-pipeline/releases/tag/voxscribe-v2.1.0)):
+  `transcribe.sh` is found from the skill's own directory. The old
+  `~/.claude/plugins` glob never matched in Codex. Folder fan-out is described
+  for both harnesses. Lecture mode was run in Codex's workspace sandbox
+  (`codex sandbox -P :workspace`) with a cached model.
+- Measured without a writing model run: `scripts/check-skills.sh`, with the
+  contract line `research-pipeline:research-pipeline` going from `claude` to
+  `both`, passes for all nine plugins as published. The plugin repo's own probe
+  (`tests/harness-probe.sh`) passes in both harnesses: argument parsing, one
+  researcher's search, an opened page. Not yet run: a full pipeline run in Codex
+  that writes `artifacts/`, and voxscribe's folder fan-out by a Codex model —
+  docs/claude-codex-stack.md §10 item 11.
+- README: the research-pipeline entry and table row no longer say the pipeline
+  is Claude Code only. The Claude Code / Codex matrix rows for both plugins now
+  show what was measured. Stack doc: facts 37–42, §3, §4.6, §5.2, §9, §10.
+
 ## 2026-10-16 — the catalog in both harnesses: Claude Code / Codex matrix, statusline closed to Codex, the skill contract covers all nine plugins (S5 of the two-model stack)
 
 - **statusline is not installable in Codex.** Its entry carries
