@@ -50,13 +50,13 @@ in_contract=$(awk '!/^#/ && NF {split($1, a, ":"); print a[1]}' "$EXPECTED" | so
 mapfile -t CONTRACT <<<"$in_contract"
 [ ${#WANT[@]} -gt 0 ] || WANT=("${CONTRACT[@]}")
 for p in "${WANT[@]}"; do
-  grep -qx -- "$p" <<<"$in_contract" || die "$p has no line in $EXPECTED"
+  grep -Fqx -- "$p" <<<"$in_contract" || die "$p has no line in $EXPECTED"
 done
 # --local entries: in the catalog and a git clone, checked before anything is written.
 in_catalog=$(python3 -c 'import json, sys; print("\n".join(p["name"] for p in json.load(open(sys.argv[1]))["plugins"]))' \
   "$CATALOG/.claude-plugin/marketplace.json")
 for p in "${!LOCAL[@]}"; do
-  grep -qx -- "$p" <<<"$in_catalog" || die "--local $p: no such plugin in the catalog"
+  grep -Fqx -- "$p" <<<"$in_catalog" || die "--local $p: no such plugin in the catalog"
   git -C "${LOCAL[$p]}" rev-parse --git-dir >/dev/null 2>&1 || die "--local $p: ${LOCAL[$p]} is not a git clone"
 done
 
