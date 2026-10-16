@@ -23,8 +23,10 @@ Security CLI / GitLab.
    `SKILL.md` под `skills/` ✅ и грузит `hooks/hooks.json` плагина по тому же
    JSON-контракту, что Claude Code (событие, `matcher`, `hookSpecificOutput`,
    exit 2 + stderr). Формат скиллов общий (agentskills.io). Второй манифест
-   не нужен; исключение — premortem (скилл не под `skills/`) — ему нужен
-   3-строчный оверлей `.codex-plugin/plugin.json` ✅.
+   не нужен, в том числе premortem (скилл не под `skills/`): оверлей
+   `.codex-plugin/plugin.json` не понадобился, хватило поправить `skills` в его
+   же манифесте на `["./premortem/"]`. Эту форму читают оба харнесса, и версия
+   осталась в одном файле (S4, факт 30) ✅.
 2. **Что реально нужно портировать** — четыре вещи, все маленькие:
    `permissionDecision: "ask"` в Codex **не поддерживается** (хук помечается
    failed, команда *выполняется*) → гейт prediction-protocol на Codex должен
@@ -79,7 +81,7 @@ Security CLI / GitLab.
 | 1 | Codex читает `.claude-plugin/marketplace.json` как «legacy-compatible marketplace»; все 9 записей devpowers видны в `codex plugin list --available --json` | изолированный `CODEX_HOME`, `marketplace add /home/…/devpowers` и `marketplace add umar-s/devpowers` (git) ✅ |
 | 2 | `codex plugin add <name>@devpowers` ставит `git-subdir`- и `url`-источники в `$CODEX_HOME/plugins/cache/devpowers/<plugin>/<version>/`, версия берётся из `.claude-plugin/plugin.json` | task-flow 1.11.0, prediction-protocol 1.0.3, premortem 1.0.0, co-rar 1.0.1, loop-foundry 1.1.0, md2pdf 1.3.0 ✅ |
 | 3 | Скиллы плагинов видны модели как `plugin:skill` с абсолютным путём к `SKILL.md`: `task-flow:task`, `task-flow:decompose`, `task-flow:ci-gate`, `prediction-protocol:prediction-protocol`, `loop-foundry:loop-foundry`, `co-rar:co-rar`, `md2pdf:md2pdf` | `codex exec -s read-only` «перечисли скиллы» ✅ |
-| 4 | premortem (скилл в `./premortem/`, манифест `skills: ["./"]`) Codex **не** видит; симлинк `skills/premortem → ../premortem` не помогает; оверлей `.codex-plugin/plugin.json` с `"skills": "./premortem/"` — помогает | lab-маркетплейс с двумя вариантами ✅ |
+| 4 | premortem (скилл в `./premortem/`, манифест `skills: ["./"]`) Codex **не** видит; симлинк `skills/premortem → ../premortem` не помогает; оверлей `.codex-plugin/plugin.json` с `"skills": "./premortem/"` — помогает. Уточнено в S4: оверлей не нужен, `["./premortem/"]` в самом `.claude-plugin/plugin.json` видят оба харнесса (факт 30) | lab-маркетплейс с двумя вариантами ✅ |
 | 5 | Хуки: тот же контракт, что в Claude Code — события `PreToolUse/PostToolUse/SessionStart/…`, `matcher` по имени тула (`Bash`; `apply_patch` откликается на `Edit\|Write`), stdin с `session_id/transcript_path/cwd/permission_mode/tool_name/tool_use_id/tool_input.command`, deny = `hookSpecificOutput.permissionDecision:"deny"` или exit 2 + stderr; плагинный `hooks/hooks.json` подхватывается по умолчанию; хук получает `PLUGIN_ROOT`/`PLUGIN_DATA` **и** `CLAUDE_PLUGIN_ROOT`/`CLAUDE_PLUGIN_DATA` | официальный мануал (раздел Hooks) — живой прогон заблокирован классификатором, см. §10 ⚠ |
 | 6 | `permissionDecision: "ask"`, `continue`, `stopReason` для PreToolUse **не поддерживаются**: hook run = failed, tool call продолжается | мануал, дословно ⚠ (следствие для гейта — §4.1) |
 | 7 | `codex exec` не принимает `-a`; политика — `-c approval_policy=never` или профиль `-p <name>` (`$CODEX_HOME/<name>.config.toml`); stdin не-TTY → «Reading additional input from stdin» и ожидание EOF — в скриптах всегда `</dev/null` | ✅ (два зависших прогона) |
@@ -105,6 +107,11 @@ Security CLI / GitLab.
 | 27 | Проектный `.codex/hooks.json` с **доверенным** хэшем не исполнился, пока проект не trusted; после `trust_level = "trusted"` — исполнился. Попутно: проектный хук с JSON-deny и `exit 2` при **пустом** stderr команду не остановил (одно наблюдение) | изолированный `CODEX_HOME` с маркером ✅ 2026-10-16 |
 | 29 | Отказ **state-guard** prediction-protocol 1.1.0 (правка самого состояния протокола) — вторая форма отказа в записи сессии: Claude — `tool_result` `is_error` `PreToolUse:Edit hook error: prediction-protocol: …` (без версии); Codex (`apply_patch`) — строка роутера `error=Command blocked by PreToolUse hook: prediction-protocol: editing the protocol state is a bypass. Command: *** Begin Patch` + `*** Update File: <путь>`. Упавшая команда, печатающая маркер гейта, в `stream-json` — `Exit code 1\n…`, `is_error: true`; успешная — `is_error: false`; событий PreToolUse-хука в `stream-json` нет | живые прогоны (haiku, `codex exec -s read-only`) ✅ 2026-10-16; состояние не изменилось |
 | 28 | Claude Code 2.1.301: `claude -p --output-format stream-json` без `--verbose` → `Error: When using --print, --output-format=stream-json requires --verbose`. Отказ гейта в `stream-json` — `tool_result` `PreToolUse:Bash hook error: prediction-protocol v…` (отказ `dontAsk` — другой текст); гейт ключует по `PP_SESSION` из env и при другом `--session-id`. `env -i` без `HTTPS_PROXY` на хосте с прокси — `claude -p` висит после `init` | ✅ 2026-10-16 (`--plugin-dir`, haiku, $0.003) |
+| 30 | Поле `skills` в `.claude-plugin/plugin.json` (Claude 2.1.301 / Codex 0.162.1): `["./"]` — Claude ✅ / Codex ❌; `"./premortem/"` — ✅/✅; `["./premortem/"]` — ✅/✅; `["./"]` + оверлей `.codex-plugin/plugin.json` — ✅/✅. Путь в `skills` может указывать прямо на каталог с `SKILL.md` в обоих харнессах — второй манифест (и вторая копия версии) не нужен | lab-маркетплейс с четырьмя вариантами в изолированных `CLAUDE_CONFIG_DIR`/`CODEX_HOME`; Claude — `claude plugin details` и init-событие `claude -p --plugin-dir` (`skills: ['pm-v2:premortem']`) ✅ 2026-10-16 |
+| 31 | Видимость скиллов проверяется **без вызова модели**: `codex debug prompt-input x </dev/null` печатает промпт модели JSON-ом, со списком скиллов и путями к `SKILL.md` (auth не нужен, работает в пустом `CODEX_HOME`); `claude plugin details <plugin>@<marketplace>` — инвентарь компонентов, включая скиллы. На этом построен `scripts/check-skills.sh` каталога: одноразовые `CLAUDE_CONFIG_DIR`/`CODEX_HOME`, точное сравнение с `scripts/expected-skills.txt` | ✅ 2026-10-16 |
+| 32 | Codex 0.162.1 в системном промпте: «Resolve relative paths against the directory containing a filesystem-backed `SKILL.md`»; Claude Code печатает модели «Base directory for this skill: <dir>». Относительный `scripts/…` в SKILL.md работает в обоих, абсолютный `~/.claude/skills/<skill>/…` — ни в одном для установленного плагина (тот лежит в версионном кэше харнесса) | строки бинаря Codex; md2pdf 1.3.0 ✅ 2026-10-16 |
+| 33 | **В песочнице Codex (`workspace-write`, сеть выключена — по умолчанию) не стартовали ни проверенные сборки Chromium, ни snap-приложения.** `codex sandbox -P :workspace`: AF_UNIX `socketpair` создаётся, но `setsockopt`/`shutdown`/`send` на нём возвращают EPERM; `/proc/self/status` в песочнице — `Seccomp: 2`, `Seccomp_filters: 1`, `NoNewPrivs: 1` (на хосте 0; в бинаре Codex режим зовётся `LinuxSeccomp`) — механизм отказа этим не доказан, только соседство. Chromium Playwright падает на crashpad (`setsockopt: Operation not permitted`), его headless-shell — на `shutdown`; `--no-sandbox` и отключение crashpad не помогают. snap: chromium — `snap-confine is packaged without necessary permissions … cap_dac_override`; `cups.*` — раньше, `snap run` не может создать `~/snap/<name>` и `/run/user/<uid>/snap.<name>` (read-only). Вне песочницы snap-chromium не читает `/tmp` (`ERR_FILE_NOT_FOUND`) и скрытые каталоги `~/.x/` (`ERR_ACCESS_DENIED`). `-c sandbox_workspace_write.network_access=true` при `-P :workspace` не действует (сеть так и осталась выключена) — песочница с сетью не измерена | md2pdf, Python-проба в песочнице ✅ 2026-10-16 |
+| 34 | `uv run` в песочнице `workspace-write`: `~/.cache/uv` только на чтение → `Could not acquire lock … Read-only file system`; с `UV_CACHE_DIR` в cwd — нет сети на загрузку зависимостей. Скрипты premortem (`uv run scripts/cli.py …`) на Codex идут только с эскалацией; голый `python3` проходит, если зависимости уже стоят в системном Python | ✅ 2026-10-16 |
 
 ---
 
@@ -188,9 +195,9 @@ auto-режима (факт 13) и вложенные песочницы; при
 | **prediction-protocol** | hooks (PreToolUse×2, PostToolUse, SessionStart), CLI `bin/predict`, skill | хуки грузятся (после trust) ⚠, но `ask` → failed → **команда выполняется** — на Codex гейт сегодня fail-open в двух клетках таблицы; `PREDICT` не экспортируется (нет `CLAUDE_ENV_FILE`); стейт-гард не видит `apply_patch` | `ask`→`deny` на Codex; `apply_patch`-парсер; SessionStart `additionalContext`; glob по обоим кэшам в SKILL; таблица платформы Codex в `hook-engineering.md`; фикстуры Codex в `tests/run.sh`; `platform-probe.sh --codex` | **S1 → 1.1.0**; запись отказов (`predict status --json` → `denies`) — **S3 → 1.2.0** |
 | **task-flow** | 3 skills, `templates/ci-gate`, scripts | скиллы видны ✅; `ROOT` резолвится по пути SKILL.md (fallback уже есть) ✅; «Agent tool / subagent» и `/task` — Claude-термины | раздел Harness в 3 SKILL.md; фазы 6/6b: перекрёстное ревью как предпочтительный dispatch; `references/cross-review.md`; `templates/xreview/xreview.sh`; `templates/ci-gate/gitlab/codex-security.gitlab-ci.yml`; `templates/agents/` (AGENTS.md-скелет, `.codex/agents/reviewer.toml`, `.codex/rules/git.rules`); bindings читаются из `AGENTS.md`/`CLAUDE.md` | **S2 → 1.12.0 ✅** |
 | **loop-foundry** | skill + references | скилл виден ✅; контракт раннера завязан на `claude -p --session-id` | `references/harnesses.md`: исполнитель `claude -p` или `codex exec -p <profile> --ignore-rules --dangerously-bypass-hook-trust` (checkout никогда не trusted, состояние протокола модели недоступно на запись) под экспортированным `PP_SESSION` + `PP_ENTRYPOINT=headless`; `PREDICT` закреплён по записи установки харнесса исполнителя, без glob; `gate_denies` — из `predict status --json` (`denies`, prediction-protocol 1.2.0): в `--json` Codex отказа нет, а его stderr-записи подделываемы (факт 25); верификатор — другая модель через `xreview.sh`, вне протокола по построению; `executor_model`/`verifier_model`; чистый checkout на каждый тик | **S3 → 1.2.0 ✅** |
-| **premortem** (форк) | skill в `./premortem/` | **не виден** ✅ | оверлей `.codex-plugin/plugin.json` (`skills: "./premortem/"`) — аддитивная упаковка, README форка не трогаем | **S4 → 1.0.1** |
-| **co-rar** | skill | виден ✅, чистая рамка | одна строка в README/SKILL: `$co-rar:co-rar` | **S4 → 1.0.2** |
-| **md2pdf** | skill + scripts | виден ✅; в Quick start захардкожен `~/.claude/skills/md2pdf/scripts/md2pdf.py` — на Codex путь другой | путь относительно SKILL.md (`<dir of SKILL.md>/scripts/md2pdf.py`) | **S4 → 1.3.1** |
+| **premortem** (форк) | skill в `./premortem/` | до 1.0.2 **не виден** ✅ | `"skills": ["./premortem/"]` в его же `.claude-plugin/plugin.json` — оба харнесса видят скилл, оверлей не нужен (факт 30); файлы апстрима не тронуты. Скрипты (`uv run scripts/cli.py`) в песочнице Codex не идут — эскалация (факт 34) | **S4 → упаковка 1.0.2 ✅** (1.0.1 был занят: тег 2026-08-22 при `plugin.json` 1.0.0) |
+| **co-rar** | skill | виден ✅, чистая рамка | payload без харнесс-специфики → релиза нет; README «In Codex» (`co-rar@co-rar`, `co-rar@devpowers`, `$co-rar:co-rar`), в `CLAUDE.md` — проверка без модели | **S4 ✅ docs, без версии** |
+| **md2pdf** | skill + scripts | виден ✅; в Quick start захардкожен `~/.claude/skills/md2pdf/scripts/md2pdf.py` — неверен в **обоих** харнессах для установленного плагина | `<SKILL_DIR>/scripts/md2pdf.py` (факт 32); на Codex — запуск вне песочницы с первой попытки (факт 33); предупреждение snap и о скрытых каталогах; первые тесты | **S4 → 1.3.1 ✅** |
 | **devpowers** (каталог) | marketplace.json, README, docs | читается ✅ | README «Install → Codex», этот документ, CHANGELOG; второй манифест `.agents/plugins/marketplace.json` **не нужен** | **S0/S5** |
 | **research-pipeline** | skills, `agents/*.md` (Claude subagents), `commands/`, `workflows/` | скиллы загрузятся; агенты — Claude-формат, у Codex агенты — `.codex/agents/*.toml` на уровне проекта, не плагина | отдельный этап: генерация `.codex/agents/*.toml` в проект пользователя + harness-раздел в manager-research | отложено (S6) |
 | **voxscribe** | skills + python scripts | должен работать (скрипты запускаются из shell) | «fan out to subagents» → harness-заметка | отложено (S6) |
@@ -353,13 +360,52 @@ skills и без файлов настроек; Codex-ревьюер с `--ignor
   хуков вне записи исполнителя; `SKILL.md` — раздел Harness и компаньон
   task-flow.
 
-### 4.4 S4 — premortem 1.0.1, co-rar 1.0.2, md2pdf 1.3.1
+### 4.4 S4 — md2pdf 1.3.1, premortem (упаковка) 1.0.2, co-rar — docs — ✅ выпущено 2026-10-16
 
-- premortem: `.codex-plugin/plugin.json` с `name/version/description/author`
-  и `"skills": "./premortem/"` — только наши файлы, апстрим не трогаем.
-- co-rar: строка про `$co-rar:co-rar` в README/SKILL.
-- md2pdf: путь скрипта относительно SKILL.md; заметка про зависимости
-  (pandoc, Chromium) — они хостовые, а не харнесса.
+План был «premortem 1.0.1 оверлеем, co-rar 1.0.2, md2pdf 1.3.1». Что вышло и чем
+отличается:
+
+- **premortem → `plugin-v1.0.2`.** Оверлей `.codex-plugin/plugin.json` не понадобился:
+  в лаборатории из четырёх вариантов манифеста `"skills": ["./premortem/"]` в
+  существующем `.claude-plugin/plugin.json` видят оба харнесса (факт 30), так что
+  второго манифеста и второй копии версии нет. Номер 1.0.2, потому что `plugin-v1.0.1`
+  уже был: тег 2026-08-22 поставлен при `plugin.json` 1.0.0, и оба харнесса ставили
+  его как 1.0.0. Упаковка трогает только манифест. Скрипты скилла (`uv run
+  scripts/cli.py …`) в песочнице Codex не идут: кэш uv read-only, сети нет (факт 34).
+  В интерактивном Codex — эскалация на каждый вызов (правило префикса `uv run`), в
+  `codex exec` — никак. SKILL.md апстрима об этом не говорит, и мы его не правим.
+- **co-rar — без релиза.** В payload (`plugins/co-rar/**`) нет ни слова, специфичного
+  для харнесса, и бамп без изменения payload был бы пустой версией. README получил
+  раздел «In Codex»: собственный маркетплейс `co-rar@co-rar`, общий каталог
+  `co-rar@devpowers`, вызов `$co-rar:co-rar`. В `CLAUDE.md` — проверка через `codex
+  debug prompt-input` в собственном `CODEX_HOME`.
+- **md2pdf 1.3.1.** Quick start ссылался на `~/.claude/skills/md2pdf/scripts/md2pdf.py`.
+  Этот путь неверен в **обоих** харнессах: плагин лежит в версионном кэше. Теперь там
+  `<SKILL_DIR>/scripts/md2pdf.py` (факт 32). «Зависимости хостовые» оказалось
+  неполной правдой: в песочнице Codex не стартовала ни одна проверенная сборка
+  Chromium (факт 33). Поэтому SKILL.md велит Codex-агенту просить
+  `require_escalated` с первого вызова, а скрипт дописывает эту подсказку к ошибке
+  песочницы. Предупреждение snap теперь ловит и скрытые каталоги. Добавлены первые
+  тесты (stdlib `unittest`).
+- **Каталог: `scripts/check-skills.sh`** — какие скиллы видит модель в обоих
+  харнессах, без вызова модели, против контракта `scripts/expected-skills.txt`
+  (факт 31). Его попросило ревью упаковки premortem. Проверка живёт в каталоге, а
+  не в форке, и покрывает всю линейку.
+- Ревью: Codex через `xreview.sh` по каждому репозиторию; до «ready to merge»
+  premortem прошёл 2 раунда, co-rar — 3, md2pdf — 4. md2pdf: нет тестов, затем
+  трижды заявления шире измеренного («ни один Chromium», «seccomp режет»,
+  значения хоста по полям, измеренным только в песочнице). co-rar: изоляция
+  проверки только в прозе, затем `export X=$(mktemp)` маскировал сбой. premortem:
+  нет проверки на уровне загрузчиков. Сама проверка в каталоге прошла 7 раундов,
+  и в ней было четыре неверных выхода: пустой контракт → 0; сбой подготовки → произвольный код;
+  нечитаемый инвентарь → пустой список; регулярка по сырому выводу Codex вместо
+  разбора JSON, а после неё — блок скиллов, который обрывался на любой лишней
+  строке или не привязывался к началу строки. Теперь все четыре дают rc 2. Ещё
+  нашлась critical-находка: имя из `--local` попадало в путь распаковки до
+  проверки, и `../../../x` распаковывал клон вне рабочего каталога. Всё это
+  держат 37 офлайн-контролей. Опубликованный
+  контракт (task-flow, prediction-protocol, loop-foundry, co-rar, md2pdf,
+  premortem) — ok в обоих харнессах.
 
 ### 4.5 S0/S5 — devpowers
 
@@ -419,7 +465,7 @@ codex plugin add prediction-protocol@devpowers
 codex plugin add loop-foundry@devpowers
 codex plugin add co-rar@devpowers
 codex plugin add md2pdf@devpowers
-codex plugin add premortem@devpowers                     # скилл появится с premortem 1.0.1 (S4)
+codex plugin add premortem@devpowers                     # скилл виден с упаковки 1.0.2 (S4)
 codex plugin list
 ```
 
@@ -754,6 +800,11 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | Плагины памяти у ревьюера | claude-mem и др. пересказывают ревьюеру историю реализации — тот самый брифинг автором, который запрещает clean-context | изоляция по умолчанию в `xreview.sh`; опт-аут `XREVIEW_ISOLATE=0` только с причиной |
 | Вердикт LLM-ревью в свободном Markdown | цитата, комментарий, отступ, вложенный fence читаются человеком и парсером по-разному → ложное «чисто» (три раунда ревью подряд) | вердикт отдельным каналом — две последние строки простым текстом; текст ревьюера в отчёте — одним буквальным блоком |
 | Официальный GitLab-пример Codex Security как есть | не стартует на своём образе (нет `git`/`python3`), без порога никогда не падает, грязное дерево = exit 2 | шаблоны task-flow 1.12.0 (факт 23) |
+| Абсолютный `~/.claude/skills/<skill>/…` в SKILL.md | у установленного плагина неверен в **обоих** харнессах (версионный кэш) — агент ищет скрипт сам или падает | путь от каталога SKILL.md: `scripts/…` или `<SKILL_DIR>/scripts/…` с объяснением (факт 32) |
+| `"skills": ["./"]` в манифесте, скилл в подкаталоге | Claude скилл видит, Codex — нет, молча | `"skills": ["./<skill>/"]` (факт 30); после правки манифеста — `scripts/check-skills.sh --local <plugin>=<clone>` |
+| Chromium, snap-приложения в песочнице Codex | не стартуют: `setsockopt`/`shutdown`/`send` → EPERM (в песочнице `Seccomp: 2`, `NoNewPrivs: 1`), snap-confine без capabilities, `snap run` без записи в `~/snap` (факт 33) | эскалация с первого вызова (`require_escalated`, md2pdf 1.3.1 так и делает); в `codex exec` — никак |
+| `uv run` в песочнице Codex | `~/.cache/uv` read-only, сети нет → скрипт не стартует (premortem) | эскалация (правило префикса `uv run`); **не** давать песочнице писать в кэш uv через `writable_roots`: модель подложит пакет, который потом исполнится вне песочницы |
+| Тег релиза без бампа `plugin.json` | оба харнесса ставят старую версию (premortem `plugin-v1.0.1` стоял как 1.0.0), кэш `…/<plugin>/<старая версия>/` | перед тегом сверить версию в `plugin.json` с тегом (у task-flow это делает `scripts/release-check.sh`, у форков — руками) |
 
 ---
 
@@ -793,6 +844,13 @@ codex-security; фаза 8 task считает пайплайн зелёным �
    `gate_denies`; `--dangerously-bypass-hook-trust` в недоверенном
    checkout'е с подложенным `.codex/hooks.json` — хук **не** исполнился;
    полный shadow-тик с обоими харнессами и записью журнала.
+9. S4 — ✅ 2026-10-16 без модели: `scripts/check-skills.sh` — premortem, md2pdf,
+   co-rar видны в обоих харнессах; md2pdf в `codex sandbox -P :workspace` падает с
+   подсказкой об эскалации, вне песочницы под `~/<каталог>` даёт PDF. **Вам**, в
+   интерактивном Codex: «сделай pdf из <md>» — агент сам просит эскалацию на первом
+   вызове md2pdf (не после отказа), PDF появляется; `$premortem:premortem` на
+   небольшом плане — `uv run` идёт через эскалацию (одобрить с префиксом), отчёт
+   ложится в `docs/premortem/` проекта, а не в кэш плагина.
 
 Лабораторный каталог этой сессии (изолированный `CODEX_HOME` с
 установленными плагинами, `lab`-репо с диффом, `lab-market` с двумя

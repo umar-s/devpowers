@@ -14,6 +14,66 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-10-16 — md2pdf 1.3.1, premortem packaging 1.0.2, co-rar docs, `scripts/check-skills.sh`: the rest of the line in Codex (S4 of the two-model stack)
+
+- **New: `scripts/check-skills.sh`** — which skills each catalog plugin shows the
+  model, in Claude Code and in Codex. It installs plugins into throwaway
+  `CLAUDE_CONFIG_DIR`/`CODEX_HOME` and compares, without a model call,
+  `claude plugin details` and `codex debug prompt-input` with the contract in
+  `scripts/expected-skills.txt` — exactly, per plugin and harness. `--local
+  <plugin>=<clone>` checks a clone's committed HEAD before a tag. The contract
+  lists task-flow, prediction-protocol, loop-foundry, co-rar, md2pdf and
+  premortem; research-pipeline, voxscribe and statusline are reported as
+  unchecked until S5/S6 decides their Codex status. `scripts/test-check-skills.sh`
+  holds 37 offline controls (fake CLIs on PATH). Codex asked for the check while
+  reviewing premortem's packaging. It lives here rather than in the fork, so no
+  upstream file is touched and it covers the whole line. Its own review took
+  seven rounds and found four wrong exits, all now 2:
+  - a missing or empty contract exited 0;
+  - setup failures exited with arbitrary codes;
+  - an inventory that could not be read counted as an empty list;
+  - Codex's skill entries were regex-matched in the raw output, so output that
+    was not even JSON could pass. Then the block ended at any stray line, so an
+    extra skill after a blank line also passed. The decoded `### Available
+    skills` block is now read whole: one heading line, one closing
+    `</skills_instructions>` line, and entry lines only.
+
+  The same review also found two `--local` defects. Its test checked only the
+  exit code; it now asserts the files `--local` ships. And a plugin name reached
+  a path before it was checked: `--local ../../../x=<clone>` extracted the clone
+  outside the work directory. Names are now one plain path component, checked
+  against the catalog before anything is written.
+- **premortem** entry unchanged in form; packaging `plugin-v1.0.2` makes the
+  skill visible in Codex by pointing the manifest's `skills` at `./premortem/`.
+  Both harnesses read that form, so the planned `.codex-plugin/plugin.json`
+  overlay and its second copy of the version were dropped. The number is
+  1.0.2 because `plugin-v1.0.1` (2026-08-22) had been tagged with
+  `plugin.json` still at 1.0.0, and both harnesses installed it as 1.0.0. The
+  skill's `uv run` scripts need an escalation in Codex's sandbox.
+- **md2pdf** entry unchanged in form; 1.3.1 replaces the Quick start's
+  `~/.claude/skills/…` path, wrong in both harnesses for an installed plugin,
+  with the directory of SKILL.md. It tells a Codex agent to run the conversion
+  outside the sandbox from the first call: none of three Chromium builds
+  started inside `workspace-write`. Its snap warning now covers hidden
+  directories, and its first tests landed (15, end-to-end runs among them). Four
+  review rounds:
+  - the first found missing tests and the claim "no Chromium starts";
+  - the second, "the seccomp filter refuses", a cause that had not been
+    measured;
+  - the third, host values given for fields measured only in the sandbox;
+  - the fourth was ready to merge.
+- **co-rar** — no release: its payload holds nothing harness-specific. The
+  README gained an "In Codex" section, and `CLAUDE.md` a model-free Codex
+  check in its own `CODEX_HOME`. That check's isolation and exit status were
+  fixed over two review rounds.
+- Facts that moved into `docs/claude-codex-stack.md` §1/§9 (rows 30–34): the
+  `skills` field across both harnesses; skill visibility without a model call;
+  Codex resolves a SKILL.md's relative paths against its directory; in Codex's
+  `workspace-write` sandbox (network off) no tested Chromium build or snap app
+  started (EPERM on AF_UNIX socket calls, `Seccomp: 2`, `NoNewPrivs: 1`);
+  `uv run` there has neither a writable cache nor network. §3 matrix, §4.4
+  released with the plan's corrections, §5.2, §10 item 9.
+
 ## 2026-10-16 — loop-foundry 1.2.0 and prediction-protocol 1.2.0: executor per harness, the deny record (S3 of the two-model stack)
 
 - **loop-foundry** entry unchanged in form; the plugin's 1.2.0 release lets a
