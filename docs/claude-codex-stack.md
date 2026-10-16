@@ -887,8 +887,8 @@ codex-security; фаза 8 task считает пайплайн зелёным �
    ложится в `docs/premortem/` проекта, а не в кэш плагина.
 10. S5 — ✅ 2026-10-16 без модели: `scripts/check-skills.sh` — все 9 плагинов по
     контракту в обоих харнессах, statusline в Codex — `not installable`; каталог без
-    политики даёт MISMATCH. **Вам**: `codex plugin remove statusline@devpowers` в своём
-    `~/.codex` — там стоит 1.0.2, поставленный до S5.
+    политики даёт MISMATCH. statusline 1.0.2, поставленный в `~/.codex` до S5, удалён
+    `codex plugin remove statusline@devpowers` — ✅ 2026-10-16 (`not installed`, кэша нет).
 
 Лабораторный каталог этой сессии (изолированный `CODEX_HOME` с
 установленными плагинами, `lab`-репо с диффом, `lab-market` с двумя
