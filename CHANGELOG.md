@@ -14,6 +14,59 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-10-16 — loop-foundry 1.2.0 and prediction-protocol 1.2.0: executor per harness, the deny record (S3 of the two-model stack)
+
+- **loop-foundry** entry unchanged in form; the plugin's 1.2.0 release lets a
+  loop's executor run in either harness (`claude -p` or `codex exec`, a spec
+  field) and makes the verifier the other model through task-flow's
+  `xreview.sh` — read-only and isolated, so outside the prediction protocol by
+  construction (the verifier's own session of 1.1.0 is gone, and the verifier
+  gets no grants: a Claude reviewer has no shell, a Codex one a read-only,
+  offline one). Journal fields per role (`executor_model`,
+  `verifier_model`), a clean checkout for every tick, a loop checkout that is
+  never a trusted Codex project, a Codex executor with `--ignore-rules` and no
+  write path to the prediction state. Codex reviewed the release through
+  `xreview.sh`; its first round removed a `--add-dir` to that state (the
+  model could switch the gate off by a computed path, unseen), a
+  command-capable verifier variant and a globbed `PREDICT`; the second moved
+  the stream capture out of the executor's reach and the record parsing into
+  one shipped parser, `scripts/tick_record.py`, tested on real platform
+  records; later rounds turned that parser into a whitelist of observed
+  shapes, which also surfaced a second deny the record carries — the state
+  guard's refusal of an edit of the protocol's own state; the fifth showed
+  no parser can frame Codex's multi-line stderr safely, so the deny moved
+  into the tool.
+- **prediction-protocol** entry unchanged in form; its 1.2.0 release records
+  every deny its hooks issue (class, base64 of the exact command; the state
+  guard's refused path; `gate-error`) in the session's state, out of a
+  sandboxed model's reach, and `predict status --json` returns them as
+  `denies` — loop-foundry's `gate_denies` comes from there. Reviewed by Codex
+  on its own over twelve rounds (trailing newlines, damaged lines, an early
+  deny, JSON whitespace in the state guard — the last also closed a
+  compact-JSON assumption in the guard's path match; recorders that ran
+  external processes before a deny printed; one appended file that
+  interleaved concurrent long records, now one file per deny; a reader that
+  overwrote `gate_seen`). The deny path — both hooks and both libraries the
+  gate sources — is pinned whole by sha256 in lint: a pin of a function's text
+  or a snapshot after sourcing was each shown bypassable by a redefinition.
+- Facts that moved into `docs/claude-codex-stack.md` §1/§9 (rows 24–29): an
+  exported `PP_SESSION` keys the gate in `codex exec` (no `--session-id`
+  needed); **a hook deny is absent from `codex exec --json`** — it is only in
+  Codex's stderr log, the model only in the rollout; `~/.local/state` is
+  read-only inside `workspace-write` and must stay so — prediction-protocol
+  1.1.0 catches a state write by its literal path only, so a model-writable
+  state is a gate the model can switch off; a project's `.codex/` loads only
+  when the project is trusted; `claude -p --output-format stream-json` needs
+  `--verbose` (the 1.1.0 runner line lacked it), and a CLI under `env -i`
+  without the host's proxy variables hangs after `init`; the state guard's
+  deny has its own shape on each harness (no version in its marker), and a
+  failing command cannot pose as a gate deny in `stream-json` (`Exit code N`
+  comes first). The §4.3 plan was
+  wrong twice and says so: `PREDICT` is pinned from the executor harness's
+  install record, never globbed (`sort -V` over paths orders caches and
+  marketplaces before versions — §7.2' had the same bug), and `gate_denies` on
+  Codex cannot come from the events. No source or ref change.
+
 ## 2026-10-16 — task-flow 1.12.0: two harnesses and cross-review (S2 of the two-model stack)
 
 - **task-flow** entry unchanged in form; the plugin's 1.12.0 release runs the

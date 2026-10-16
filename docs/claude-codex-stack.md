@@ -64,9 +64,11 @@ Security CLI / GitLab.
    лечится AppArmor-профилем для бинаря `codex`, по образцу штатного
    `/etc/apparmor.d/chatgpt` (§5.1, нужен sudo). И: хуки плагина в Codex не
    работают, пока вы их не «доверили» через `/hooks`; доверие — по хэшу
-   определения, т.е. **после каждого обновления плагина — снова** (раннер
+   определения, т.е. **после каждой смены определения хука в `hooks.json` —
+   снова** (обновление без такой смены доверие сохраняет, §9) (раннер
    вместо этого передаёт `--dangerously-bypass-hook-trust`, потому что он
-   сам установил плагин и отвечает за источник).
+   сам установил плагин и отвечает за источник — при checkout'е лупа, который
+   никогда не trusted: проектный `.codex/` тогда не грузится, факт 27).
 
 ---
 
@@ -97,6 +99,12 @@ Security CLI / GitLab.
 | 21 | `codex exec -p <name>` в 0.162 = слой `$CODEX_HOME/<name>.config.toml` (help: `CONFIG_PROFILE_V2`), факт 7 подтверждён; роли агентов — `<config folder>/agents/*.toml` (`agent-roles/src/loader.rs`), без `developer_instructions` роль отбрасывается («Ignoring malformed agent role definition») | исходники `rust-v0.162.1` + негативный контроль ✅ |
 | 22 | execpolicy `prefix_rule` сравнивает точные токены на точных позициях: `git push --force-with-lease=<ref>`, `git push -fu`, `git push origin main --force` не видит правило `forbidden` для `["git","push",["--force",…]]` → push нельзя разрешать `allow` вообще (только `prompt`); решения сравнимы `allow < prompt < forbidden`; примеры `match`/`not_match` валидируются при загрузке | `codex execpolicy check` ✅ 2026-10-16 |
 | 23 | Официальный минимальный GitLab-пример Codex Security: в `node:26-bookworm-slim` нет `git` и `python3` (его `git merge-base` и экспорт не запускаются); без `--fail-on-severity` сканер не выходит с 1 (гейт зелёный при любых находках); committed-diff скан отказывается от грязного дерева (ничего нельзя писать в checkout до скана); родитель `--output-dir` не может быть group/world-writable без sticky; `--mock` даёт синтетические находки без ключа и LLM; ключ в CI — `OPENAI_API_KEY`/`CODEX_API_KEY` (`CODEX_SECURITY_API_KEY` — защищённая переменная шаблона) | docker + `--mock`, `scripts/codex-security-mock.sh` 20/20 ✅ 2026-10-16 |
+| 24 | `codex exec` у раннера: экспортированный `PP_SESSION` доходит и до хука, и до шелла модели (`printenv` в шелле модели вернул `PP_SESSION`/`PREDICT`/`PP_ENTRYPOINT`), гейт отказал по состоянию **этой** сессии, `predict report` → `gate_seen` выставлен — `--session-id` Codex'у не нужен | изолированный `CODEX_HOME`, хуки prediction-protocol 1.1.0 из кэша Codex, доверенные по хэшу ✅ 2026-10-16 |
+| 25 | **Отказ хука не попадает в поток `codex exec --json`**: запрещённого вызова там нет ни как `command_execution`, ни иначе. Он есть в stderr Codex — `<ts> ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: <причина, обрезанная>… Command: <команда>` — и в rollout (`custom_tool_call_output`). Модель — только в rollout (`turn_context.model`); под `--json` баннера `model:` в stderr нет | там же ✅ 2026-10-16 |
+| 26 | В песочнице `workspace-write` `~/.local/state` только на чтение (`Read-only file system`), `/tmp` записываем → `predict open/close` из шелла Codex-модели падают. **Так и надо оставить:** prediction-protocol 1.1.0 ловит запись в состояние только по буквальному пути (`pp_classify` на `pathlib …/"state"` → не классифицировано), а `predict status` при `active=0` — rc 0: записываемое моделью состояние = гейт, который она выключает незаметно. `codex sandbox -C <dir>` требует `-P <profile>` (`:workspace`); без `-C` — нет | `codex sandbox -P :workspace`, `pp_classify` ✅ 2026-10-16; сам `codex exec -s workspace-write` — ⚠ (факт 13) |
+| 27 | Проектный `.codex/hooks.json` с **доверенным** хэшем не исполнился, пока проект не trusted; после `trust_level = "trusted"` — исполнился. Попутно: проектный хук с JSON-deny и `exit 2` при **пустом** stderr команду не остановил (одно наблюдение) | изолированный `CODEX_HOME` с маркером ✅ 2026-10-16 |
+| 29 | Отказ **state-guard** prediction-protocol 1.1.0 (правка самого состояния протокола) — вторая форма отказа в записи сессии: Claude — `tool_result` `is_error` `PreToolUse:Edit hook error: prediction-protocol: …` (без версии); Codex (`apply_patch`) — строка роутера `error=Command blocked by PreToolUse hook: prediction-protocol: editing the protocol state is a bypass. Command: *** Begin Patch` + `*** Update File: <путь>`. Упавшая команда, печатающая маркер гейта, в `stream-json` — `Exit code 1\n…`, `is_error: true`; успешная — `is_error: false`; событий PreToolUse-хука в `stream-json` нет | живые прогоны (haiku, `codex exec -s read-only`) ✅ 2026-10-16; состояние не изменилось |
+| 28 | Claude Code 2.1.301: `claude -p --output-format stream-json` без `--verbose` → `Error: When using --print, --output-format=stream-json requires --verbose`. Отказ гейта в `stream-json` — `tool_result` `PreToolUse:Bash hook error: prediction-protocol v…` (отказ `dontAsk` — другой текст); гейт ключует по `PP_SESSION` из env и при другом `--session-id`. `env -i` без `HTTPS_PROXY` на хосте с прокси — `claude -p` висит после `init` | ✅ 2026-10-16 (`--plugin-dir`, haiku, $0.003) |
 
 ---
 
@@ -155,7 +163,8 @@ Security CLI / GitLab.
 приходит как ревьюер через `xreview.sh` (task-flow 1.12.0) — короткий
 headless-вызов из скилла или из терминала. Пакетно — раннер loop-foundry, где исполнитель
 тика — `codex exec` **или** `claude -p`, верификатор — другая модель
-(🔧 S3). Причины не «оркестрировать из сессии Claude»: классификатор
+через тот же `xreview.sh`, вне протокола по построению (loop-foundry 1.2.0,
+`references/harnesses.md`). Причины не «оркестрировать из сессии Claude»: классификатор
 auto-режима (факт 13) и вложенные песочницы; причина не оркестрировать из
 сессии Codex: то же самое зеркально (`claude -p --dangerously-skip-permissions`
 изнутри Codex-песочницы — плохая идея).
@@ -176,9 +185,9 @@ auto-режима (факт 13) и вложенные песочницы; при
 
 | Плагин | Компоненты | На Codex сегодня | Что меняется | Этап |
 |---|---|---|---|---|
-| **prediction-protocol** | hooks (PreToolUse×2, PostToolUse, SessionStart), CLI `bin/predict`, skill | хуки грузятся (после trust) ⚠, но `ask` → failed → **команда выполняется** — на Codex гейт сегодня fail-open в двух клетках таблицы; `PREDICT` не экспортируется (нет `CLAUDE_ENV_FILE`); стейт-гард не видит `apply_patch` | `ask`→`deny` на Codex; `apply_patch`-парсер; SessionStart `additionalContext`; glob по обоим кэшам в SKILL; таблица платформы Codex в `hook-engineering.md`; фикстуры Codex в `tests/run.sh`; `platform-probe.sh --codex` | **S1 → 1.1.0** |
+| **prediction-protocol** | hooks (PreToolUse×2, PostToolUse, SessionStart), CLI `bin/predict`, skill | хуки грузятся (после trust) ⚠, но `ask` → failed → **команда выполняется** — на Codex гейт сегодня fail-open в двух клетках таблицы; `PREDICT` не экспортируется (нет `CLAUDE_ENV_FILE`); стейт-гард не видит `apply_patch` | `ask`→`deny` на Codex; `apply_patch`-парсер; SessionStart `additionalContext`; glob по обоим кэшам в SKILL; таблица платформы Codex в `hook-engineering.md`; фикстуры Codex в `tests/run.sh`; `platform-probe.sh --codex` | **S1 → 1.1.0**; запись отказов (`predict status --json` → `denies`) — **S3 → 1.2.0** |
 | **task-flow** | 3 skills, `templates/ci-gate`, scripts | скиллы видны ✅; `ROOT` резолвится по пути SKILL.md (fallback уже есть) ✅; «Agent tool / subagent» и `/task` — Claude-термины | раздел Harness в 3 SKILL.md; фазы 6/6b: перекрёстное ревью как предпочтительный dispatch; `references/cross-review.md`; `templates/xreview/xreview.sh`; `templates/ci-gate/gitlab/codex-security.gitlab-ci.yml`; `templates/agents/` (AGENTS.md-скелет, `.codex/agents/reviewer.toml`, `.codex/rules/git.rules`); bindings читаются из `AGENTS.md`/`CLAUDE.md` | **S2 → 1.12.0 ✅** |
-| **loop-foundry** | skill + references | скилл виден ✅; контракт раннера завязан на `claude -p --session-id` | `predictions.md`/`ladder.md`/SKILL: executor/verifier per harness (`codex exec -p builder --dangerously-bypass-hook-trust` + `PP_ENTRYPOINT=headless`), `PREDICT` по обоим кэшам, `gate_denies` из событий Codex, поле `model` на роль, гетерогенный verifier как норма | **S3 → 1.2.0** |
+| **loop-foundry** | skill + references | скилл виден ✅; контракт раннера завязан на `claude -p --session-id` | `references/harnesses.md`: исполнитель `claude -p` или `codex exec -p <profile> --ignore-rules --dangerously-bypass-hook-trust` (checkout никогда не trusted, состояние протокола модели недоступно на запись) под экспортированным `PP_SESSION` + `PP_ENTRYPOINT=headless`; `PREDICT` закреплён по записи установки харнесса исполнителя, без glob; `gate_denies` — из `predict status --json` (`denies`, prediction-protocol 1.2.0): в `--json` Codex отказа нет, а его stderr-записи подделываемы (факт 25); верификатор — другая модель через `xreview.sh`, вне протокола по построению; `executor_model`/`verifier_model`; чистый checkout на каждый тик | **S3 → 1.2.0 ✅** |
 | **premortem** (форк) | skill в `./premortem/` | **не виден** ✅ | оверлей `.codex-plugin/plugin.json` (`skills: "./premortem/"`) — аддитивная упаковка, README форка не трогаем | **S4 → 1.0.1** |
 | **co-rar** | skill | виден ✅, чистая рамка | одна строка в README/SKILL: `$co-rar:co-rar` | **S4 → 1.0.2** |
 | **md2pdf** | skill + scripts | виден ✅; в Quick start захардкожен `~/.claude/skills/md2pdf/scripts/md2pdf.py` — на Codex путь другой | путь относительно SKILL.md (`<dir of SKILL.md>/scripts/md2pdf.py`) | **S4 → 1.3.1** |
@@ -287,22 +296,62 @@ skills и без файлов настроек; Codex-ревьюер с `--ignor
   file: `AGENTS.md` (Codex, and the recommended single source) or `CLAUDE.md`».
 - README.md ↔ README.ru.md lockstep, `scripts/lint.sh`, `release-check.sh`, PR.
 
-### 4.3 S3 — loop-foundry 1.2.0: «executor per harness»
+### 4.3 S3 — loop-foundry 1.2.0: «executor per harness» — ✅ выпущено 2026-10-16
 
-- `references/predictions.md`, runner contract: строка исполнителя становится
-  вариантной —
-  `PP_ENTRYPOINT=headless codex exec -p builder -C "$CHECKOUT" --dangerously-bypass-hook-trust --json -o "$TICK/last.md" - < "$TICK/executor.prompt" > "$TICK/executor.jsonl"`
-  или прежний `claude -p --session-id "$PP_SESSION"`; `PREDICT` — glob по
-  обоим кэшам; `gate_denies` — grep `prediction-protocol v` по событиям
-  Codex (`item.completed` / `command_execution`), не только по stream-json Claude.
-- `ladder.md`: поле `model` журнала — на роль (`executor_model`,
-  `verifier_model`); гетерогенный verifier — норма для gated и выше;
-  «смена версии модели» → демоушен считается по каждой роли.
-- `loop-spec.md` §3.1: «отдельная сессия/модель» → «другая модель, если
-  доступна» с явным полем. `gaps.md`: канарейка платформы для Codex, trust
-  хуков у раннер-пользователя, AppArmor-профиль на раннер-хосте, `codex login`
-  раннер-пользователя (auth.json как пароль).
-- `SKILL.md` фаза 5: генерируемый раннер выбирает исполнителя из спеки §4.
+Дизайн — `loop-foundry/docs/superpowers/specs/2026-10-16-loop-foundry-1-2-0-design.md`
+(его факты E1–E12 сведены здесь в 24–29). Что выпущено, и где план этого раздела оказался
+неверен:
+
+- Новый `references/harnesses.md`. Исполнитель:
+  `codex exec -p <profile> -m <model> -C "$CHECKOUT" --ignore-rules --dangerously-bypass-hook-trust --json -o "$TICK/last.md" - < prompt > executor.jsonl 2> executor.stderr`
+  или `claude -p --session-id "$PP_SESSION" --output-format stream-json --verbose …`
+  (без `--verbose` строка 1.1.0 не запускалась — факт 28). Ключ сессии у
+  обоих — экспортированный `PP_SESSION` (факт 24). **Состояние протокола
+  модели на запись недоступно** — план этого не учитывал: в `workspace-write`
+  оно read-only, и так и оставлено (факт 26: записываемое — выключаемо);
+  цена — у исполнителя Codex нет квитанций в сессии, его one-way — deny,
+  one-way класса — в `deliver.sh`. Первая версия давала `--add-dir` — снято
+  ревью Codex. `--ignore-rules` (факт 20). Bypass trust — только с
+  checkout'ом, который никогда не trusted (факт 27). Коммитит раннер (`.git`
+  read-only в песочнице) — результат тика всегда диапазон.
+- **`PREDICT` — не «glob по обоим кэшам» и вообще не glob**: тик гейтит хук
+  харнесса исполнителя, а `sort -V | tail -1` по путям сравнивает каталоги
+  (кэши, маркетплейсы) раньше версий, кэш Claude ещё и хранит старые версии.
+  `PREDICT`/`XREVIEW` закрепляются по записи установки: `installed_plugins.json`
+  у Claude, `codex plugin list --json` у Codex. Та же ошибка была в §7.2' —
+  исправлена.
+- **`gate_denies` на Codex — не из событий**: отказа в `--json` нет вовсе,
+  источник — stderr Codex (факт 25); канарейка GAPS проверяет и разбор.
+  Модель Codex — из rollout.
+- Верификатор — другая модель через `xreview.sh` task-flow ≥ 1.12.0 по
+  спеке тика, которую `run.sh` собирает из файлов (§3.1, Intent, proxy risk,
+  правило `gate_denies`); exit 0/1/2 → pass/fail/escalated. **Своя сессия
+  `<loop>-verify` снята**: изолированный ревьюер не получает `PP_*`, хуков и
+  пути записи — выстрелить квитанцию исполнителя не может; команд у него нет
+  (то, что надо запустить, — гейт `gates.sh`).
+- **Отказы тика — у инструмента, не в выводе харнессов.** Пять раундов
+  ревью разбора записей кончились выводом: stderr Codex безопасно не
+  разобрать (многострочные записи, рамку которых команда может подделать).
+  Корень закрыт в **prediction-protocol 1.2.0** (выпущен в рамках S3): хуки
+  пишут каждый отказ сессии в её состояние (класс, base64 точной команды;
+  `state-guard` с путём; `gate-error`), `predict status --json` отдаёт их как
+  `denies`. loop-foundry берёт оттуда `gate_denies` и `guard_denies`
+  (`state-guard` → `escalated`, `state-tamper`; факт 29).
+- Модель и стоимость читает `scripts/tick_record.py` в payload'е (раннеры
+  зовут его на месте, не переписывают) — **белый список** наблюдённых форм:
+  отсутствующий счётчик, нечисловая сумма, непредусмотренная форма → exit 2
+  → тик `escalated`.
+  `tests/contract.sh` гоняет его по урезанным реальным записям (stderr и
+  события Codex, rollout, `stream-json` Claude) и синтетическим краям.
+  Захват потоков исполнителя (`$TICK`) — у раннера, вне checkout'а и `/tmp`:
+  иначе исполнитель Codex обнулил бы свой stderr и спрятал отказ.
+- `ladder.md`: `executor_model`/`verifier_model`, `gates.reviewed`, демоушен
+  по каждой роли; `loop-spec.md` §3.2/§4/§5/§7 — поля харнесса и модели;
+  `gaps.md` — оба CLI и авторизация, AppArmor, `XREVIEW`, канарейка в
+  харнессе исполнителя; `security.md` — чистый checkout на каждый тик,
+  checkout не trusted, `--setting-sources user` для чужих веток, источники
+  хуков вне записи исполнителя; `SKILL.md` — раздел Harness и компаньон
+  task-flow.
 
 ### 4.4 S4 — premortem 1.0.1, co-rar 1.0.2, md2pdf 1.3.1
 
@@ -572,13 +621,23 @@ codex -C ~/Project/<repo>
 ```bash
 TASK=BA-123; WT=~/wt/$TASK; git -C ~/Project/<repo> worktree add "$WT" -b "feature/$TASK" origin/development
 export PP_SESSION="$(uuidgen)" PP_ENTRYPOINT=headless
-PREDICT="$(ls -d ~/.codex/plugins/cache/*/prediction-protocol/*/bin/predict ~/.claude/plugins/cache/*/prediction-protocol/*/bin/predict 2>/dev/null | sort -V | tail -1)"
+V="$(codex plugin list --json | python3 -c 'import json,sys; print([p["version"] for p in json.load(sys.stdin)["installed"] if p["pluginId"]=="prediction-protocol@devpowers"][0])')"
+PREDICT="${CODEX_HOME:-$HOME/.codex}/plugins/cache/devpowers/prediction-protocol/$V/bin/predict"   # установленная копия харнесса, чей хук гейтит сессию (§4.3)
 "$PREDICT" on "$TASK" --task --root "$WT"                 # predict-gate: active vX (selftest: …)
 codex exec -p builder -C "$WT" --dangerously-bypass-hook-trust --json -o "/tmp/$TASK.last.md" \
   "Use \$task-flow:task for ticket $TASK. Project instructions are in AGENTS.md. Stop after phase 6 is ready for review; do not merge." \
-  </dev/null > "/tmp/$TASK.events.jsonl"
+  </dev/null > "/tmp/$TASK.events.jsonl" 2> "/tmp/$TASK.stderr"
 "$PREDICT" report                                          # строка для evidence block
 ```
+
+В `workspace-write` состояние `predict` модели недоступно на запись (факт 26)
+— и это защита, а не помеха: квитанции из сессии не открываются, one-way
+команды тикета отклоняются, и их делаете вы после прогона (или тикет идёт в
+TUI/Claude). `--add-dir` на корень состояния не давать: записываемое моделью
+состояние — выключаемый гейт. Отказы гейта ищите в `$TASK.stderr`, не в
+событиях (факт 25). `.git` worktree'а лежит вне песочницы — коммит модели
+требует правила `git commit` (§5.3) у **пользовательских** `.rules` либо
+делается после прогона руками; worktree не помечайте trusted (факт 27).
 
 `--dangerously-bypass-hook-trust` здесь — осознанно: раннер сам поставил
 плагин и отвечает за источник хуков (формулировка мануала «automation that
@@ -647,16 +706,19 @@ codex-security; фаза 8 task считает пайплайн зелёным �
    `claude -p`, §3.1 — `verifier: <другая модель>`.
 2. Фаза 5 генерирует раннер: `discover.sh` (тикеты `builder: codex`, состояние
    Ready) → на тик: `predict on --loop` под `PP_SESSION` → исполнитель
-   (§7.2') → `predict status/report` снапшоты → верификатор другой моделью
-   под своим `PP_SESSION` → `gates.sh` (диффы `predict report --json`,
-   `gate_denies`, evidence vs DoD) → `journal.py` → `deliver.sh` (только на
-   gated/autonomous, только разрешённый класс действия).
-3. Лестница shadow → gated → autonomous и её пороги — без изменений; поле
-   `model` в журнале теперь на роль, демоушен по смене любой из двух.
+   (`harnesses.md`) → `predict status/report` снапшоты → `run.sh` коммитит
+   тик → `gates.sh` (диффы `predict report --json`, `gate_denies`, evidence
+   vs DoD) → верификатор другой моделью через `xreview.sh`, вне протокола →
+   `journal.py` → `deliver.sh` (только на gated/autonomous, только
+   разрешённый класс действия) → checkout обратно к базе, чистый.
+3. Лестница shadow → gated → autonomous и её пороги — без изменений; поля
+   `executor_model`/`verifier_model`, демоушен по смене любой из двух.
 4. Раннер-хост: AppArmor-профиль, `codex login` раннер-пользователя, trust
-   хуков не нужен (флаг), `PREDICT` в env-файле раннера (GAPS).
+   хуков не нужен (флаг; checkout не trusted), `PREDICT` (кэш харнесса
+   исполнителя) и `XREVIEW` в env-файле раннера, без плагинов памяти (GAPS).
 
-До S3 всё это делается руками по §7.2'; S3 переносит в `predictions.md`/`ladder.md`.
+Это loop-foundry 1.2.0 (S3 ✅): контракт — `references/harnesses.md`,
+`predictions.md`, `ladder.md`; §7.2' остаётся ручным вариантом для одного тикета.
 
 ---
 
@@ -669,6 +731,12 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | bwrap + AppArmor userns (Ubuntu 24.04) | любая команда модели в CLI-Codex падает | профиль §5.1 (sudo, один раз, и на раннер-хосте) |
 | `.git`/`.codex`/`.agents` read-only в `workspace-write` | `git commit` = эскалация; под `never` — ошибка | `.rules` §5.3 или интерактивные approvals |
 | Сеть off в `workspace-write` | `git push`/`pip`/`glab` — эскалация | `[sandbox_workspace_write] network_access = true` |
+| `~/.local/state` read-only в `workspace-write` | `predict open`/`close` из шелла Codex-модели падают — квитанцию не открыть, каждый one-way = deny | так и оставить: `--add-dir` на корень состояния даёт модели выключить гейт вычисленным путём, незаметно (факт 26). One-way — после прогона руками или в `deliver.sh` лупа; квитанции в сессии — только у Claude (там гейт — свидетель, не граница) |
+| Отказ хука в `codex exec --json` | в потоке событий его **нет** — grep по `command_execution` даёт пустой `gate_denies` при реальных отказах | читать отказы у инструмента: `predict status --json` → `denies` (prediction-protocol ≥ 1.2.0 пишет каждый отказ из хуков); stderr не разбирать — многострочную запись команда может подделать (5 раундов ревью loop-foundry 1.2.0) |
+| `PREDICT` = новейший из двух кэшей (`sort -V` по полным путям) | сравниваются каталоги, не версии: при 1.2 у Claude и 1.1 у Codex берётся 1.1 из `.codex`; `selftest` доказывает не тот хук | `PREDICT` из кэша харнесса, чья сессия гейтится |
+| `claude -p --output-format stream-json` без `--verbose` | `Error: … requires --verbose` — раннер не стартует | `--verbose` (факт 28; строка loop-foundry 1.1.0 его не несла) |
+| `--dangerously-bypass-hook-trust` в trusted-checkout'е | исполнитель пишет `.codex/hooks.json`, следующая сессия исполняет его вне песочницы | checkout лупа никогда не trusted (факт 27) + чистый checkout на тик |
+| Хук: JSON-deny + `exit 2` при пустом stderr | команда выполнилась (одно наблюдение, Codex 0.162.1) | писать причину и в stdout-JSON, и в stderr — как гейт prediction-protocol |
 | `codex exec` читает stdin, если он не TTY | скрипт «висит» | `</dev/null` или `-` как промпт |
 | `codex exec review --base` ≠ промпт | «cannot be used with [PROMPT]» | либо `--base`, либо бриф через `codex exec -p reviewer -` |
 | Auto-режим Claude ↔ `codex exec` с записью | классификатор отказывает | оркестрирует раннер; интерактивно — обычный режим разрешений |
@@ -716,6 +784,15 @@ codex-security; фаза 8 task считает пайплайн зелёным �
    `coverage.json`; если «access required» — решение про Trusted Access / API-ключ.
 7. `/import` в Codex CLI из Claude Code — что именно переехало в
    `~/.codex/AGENTS.md`, `config.toml`, `~/.agents/skills`.
+8. loop-foundry 1.2.0 (S3) — ✅ 2026-10-16 в лаборатории (`codex exec -s
+   read-only`): `PP_SESSION` до хука и шелла модели, отказ только в stderr,
+   модель только в rollout, проектный `.codex/` только у trusted. **Вам**
+   (классификатор, факт 13): тик исполнителя Codex в `workspace-write` по
+   строке `harnesses.md` — one-way без квитанции отклонён, `predict open` из
+   шелла модели упал на read-only, `active = 1` после тика, отказ в
+   `gate_denies`; `--dangerously-bypass-hook-trust` в недоверенном
+   checkout'е с подложенным `.codex/hooks.json` — хук **не** исполнился;
+   полный shadow-тик с обоими харнессами и записью журнала.
 
 Лабораторный каталог этой сессии (изолированный `CODEX_HOME` с
 установленными плагинами, `lab`-репо с диффом, `lab-market` с двумя
