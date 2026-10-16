@@ -12,7 +12,58 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [co-rar](https://github.com/umar-s/co-rar/releases) ·
 [prediction-protocol](https://github.com/umar-s/prediction-protocol/releases) ·
 [premortem](https://github.com/umar-s/premortem/releases) ·
-[statusline](https://github.com/umar-s/claude-statusline/releases).
+[statusline](https://github.com/umar-s/statusline/releases).
+
+## 2026-10-16 — the catalog in both harnesses: Claude Code / Codex matrix, statusline closed to Codex, the skill contract covers all nine plugins (S5 of the two-model stack)
+
+- **statusline is not installable in Codex.** Its entry carries
+  `"policy": {"installation": "NOT_AVAILABLE"}`. Codex reads the field from this
+  `.claude-plugin/marketplace.json` and `codex plugin add statusline@devpowers`
+  fails with "not available for install". Claude Code ignores it:
+  `claude plugin validate .` passes with one warning, `Unknown field 'policy'`,
+  which the catalog's CLAUDE.md names as expected. The plugin is a Claude Code
+  command plus a SessionStart hook that reads Claude Code's `settings.json`, so
+  there is nothing in it for Codex. The policy only blocks new installs; a copy
+  already installed in Codex stays until `codex plugin remove statusline@devpowers`.
+  Its description now opens with "Claude Code only".
+- **README: "Claude Code and Codex".** A per-plugin matrix gives each skill's name
+  as called in Codex (`$plugin:skill`; `/plugin:skill` in Claude Code) and the
+  plugin's status in each harness, along with the release that brought it to
+  Codex and what it still needs there. The names went into the README rather
+  than the entry descriptions, because both harnesses show those descriptions
+  and `$` is Codex syntax. Two entries changed for availability facts only:
+  - statusline, as above;
+  - research-pipeline: in Codex only its skills load, and the pipeline (a Claude
+    Code command and Claude subagents) runs in Claude Code.
+
+  The catalog's own description now reads "plugins for Claude Code and Codex CLI".
+- **`scripts/expected-skills.txt` lists all nine plugins**, so nothing is reported
+  as unchecked any more:
+  - research-pipeline: 12 skills in both harnesses, plus
+    `research-pipeline:research-pipeline` in Claude only. That one is the
+    pipeline command, which `claude plugin details` lists as a skill; Codex's
+    prompt has neither the command nor the agents.
+  - voxscribe: one skill in both.
+  - statusline: a new line form, `<plugin> not-in-codex`. `check-skills.sh` then
+    expects `codex plugin add` to be refused with the policy's own message. An
+    install that succeeds is a mismatch (rc 1); any other failure is rc 2.
+
+  Plugin names taken from the contract are checked like the ones from arguments.
+  `test-check-skills.sh` now holds 49 controls. Seven of the 12 new ones fail on the
+  previous script, and each new branch is caught by a mutation. On the real
+  harnesses all nine plugins are ok in both, and the catalog without the policy
+  gives `MISMATCH codex statusline`. The contract records what the model is shown,
+  not what runs: research-pipeline's pipeline and a voxscribe run on Codex are
+  still S6.
+- The changelog header's statusline link now points at the plugin's current
+  repository, `umar-s/statusline`; `umar-s/claude-statusline` holds the releases
+  from before it moved.
+- [docs/claude-codex-stack.md](docs/claude-codex-stack.md):
+  - facts 35 (the policy field, measured in both harnesses) and 36 (where the two
+    skill inventories disagree on commands);
+  - §3 rows for research-pipeline, voxscribe, statusline and the catalog;
+  - §4.5 S5 marked released, with how it differs from the plan;
+  - §5.2 install lines, a §9 trap, §10 item 10.
 
 ## 2026-10-16 — md2pdf 1.3.1, premortem packaging 1.0.2, co-rar docs, `scripts/check-skills.sh`: the rest of the line in Codex (S4 of the two-model stack)
 

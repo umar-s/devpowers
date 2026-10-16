@@ -12,8 +12,9 @@ trap 'rm -rf "$T"' EXIT
 fails=0
 
 # The fakes read their answers from $FAKE: claude.<plugin> ("a, b" — the `details` list),
-# codex ("plugin:skill" per line — the prompt's skill entries), fail (one step to fail or
-# garble). The fake claude keeps a copy of the marketplace it was given, in $FAKE/market.
+# codex ("plugin:skill" per line — the prompt's skill entries), refuse (plugins `codex plugin add`
+# refuses as Codex does for a NOT_AVAILABLE entry), fail (one step to fail or garble). The fake
+# claude keeps a copy of the marketplace it was given, in $FAKE/market.
 mkdir -p "$T/bin" "$T/badgit"
 cat > "$T/bin/claude" <<'EOF'
 #!/usr/bin/env bash
@@ -35,7 +36,13 @@ cat > "$T/bin/codex" <<'EOF'
 fail=$(cat "$FAKE/fail" 2>/dev/null)
 case "$1 $2" in
   "plugin marketplace") exit 0 ;;
-  "plugin add") [ "$fail" = codex-add ] && exit 1; exit 0 ;;
+  "plugin add") [ "$fail" = codex-add ] && { echo "Error: failed to fetch" >&2; exit 1; }
+    p=${3%@*}
+    if grep -Fqx -- "$p" "$FAKE/refuse"; then
+      [ "$fail" = refuse-other-name ] && p=x$p   # a refusal, but not of this plugin
+      echo "Error: plugin \`$p\` is not available for install in marketplace \`devpowers\`" >&2; exit 1
+    fi
+    exit 0 ;;
   "debug prompt-input") [ "$fail" = prompt-input ] && exit 1
     # the shape Codex 0.162.1 prints: messages, one text with the skills block; the entry lines
     # come from $FAKE/codex. Garbled variants for the controls that must exit 2.
@@ -84,7 +91,8 @@ chmod +x "$T/bin/claude" "$T/bin/codex" "$T/badgit/git"
 CONTRACT2='premortem:premortem both
 md2pdf:md2pdf both'
 
-# run <name> <expected rc> <contract|-none-> <claude.premortem> <claude.md2pdf> <codex lines> <fail> [args…]
+# [REFUSE=<plugins>] run <name> <expected rc> <contract|-none-> <claude.premortem> <claude.md2pdf>
+#                         <codex lines> <fail> [args…]
 run() {
   local name=$1 want=$2 contract=$3 cpm=$4 cmd=$5 cx=$6 fail=$7; shift 7
   local C=$T/case-$name
@@ -96,6 +104,7 @@ run() {
   printf '%s' "$cmd" > "$C/fake/claude.md2pdf"
   printf '%s\n' "$cx" > "$C/fake/codex"
   printf '%s' "$fail" > "$C/fake/fail"
+  printf '%s\n' "${REFUSE:-}" > "$C/fake/refuse"
   local path=$T/bin:$PATH tmp=$C/tmp
   [ "$fail" = git-init ] && path=$T/badgit:$path
   [ "$fail" = mktemp ] && tmp=$C/no-such-dir
@@ -150,6 +159,23 @@ run prompt-two-blocks-one-text 2 "$CONTRACT2" premortem md2pdf "$both" prompt-tw
 run prompt-heading-prefixed 2 "$CONTRACT2" premortem md2pdf "$both" prompt-heading-prefixed premortem
 run prompt-closing-prefixed 2 "$CONTRACT2" premortem md2pdf "$both" prompt-closing-prefixed premortem
 run bad-contract-line  2 'premortem:premortem everywhere' premortem md2pdf "$both" '' premortem
+run bad-contract-name  2 '../x:y both'          premortem md2pdf "$both" ''
+# `<plugin> not-in-codex`: Codex must refuse the install (the entry's NOT_AVAILABLE policy)
+REFUSE=premortem run not-in-codex-ok        0 'premortem not-in-codex' '' '' '' '' premortem
+REFUSE=premortem run not-in-codex-claude-ok 0 'premortem not-in-codex
+premortem:premortem claude' premortem '' '' '' premortem
+REFUSE=premortem run not-in-codex-claude-extra 1 'premortem not-in-codex' premortem '' '' '' premortem
+run not-in-codex-installed 1 'premortem not-in-codex' '' '' '' '' premortem
+run not-in-codex-installed-skill 1 'premortem not-in-codex' '' '' 'premortem:premortem' '' premortem
+REFUSE=premortem run not-in-codex-refused-but-listed 1 'premortem not-in-codex' '' '' 'premortem:premortem' '' premortem
+REFUSE=premortem run not-in-codex-other-failure 2 'premortem not-in-codex' '' '' '' codex-add premortem
+REFUSE=premortem run not-in-codex-wrong-refusal 2 'premortem not-in-codex' '' '' '' refuse-other-name premortem
+REFUSE=premortem run not-in-codex-with-codex-skill 2 'premortem not-in-codex
+premortem:premortem both' premortem '' 'premortem:premortem' '' premortem
+REFUSE=premortem run not-in-codex-bad-name 2 'premortem not-in-codex
+pre/mortem not-in-codex' '' '' '' '' premortem
+REFUSE=premortem run not-in-codex-mixed 0 "premortem not-in-codex
+md2pdf:md2pdf both" '' md2pdf 'md2pdf:md2pdf' ''
 
 # --local takes the clone's committed HEAD, at the entry's own subdirectory, and leaves the other
 # entries as published: a `url` entry (premortem, the repo root) and a `git-subdir` one (co-rar,

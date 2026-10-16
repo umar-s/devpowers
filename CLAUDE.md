@@ -16,6 +16,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 claude plugin validate .
 ```
 
+Ожидаемое предупреждение ровно одно — `plugins[N].policy: Unknown field 'policy'` у statusline:
+`"policy": {"installation": "NOT_AVAILABLE"}` читает только Codex (отказывает в `codex plugin add`),
+Claude Code поле игнорирует. Любое другое предупреждение — разбирать.
+
 Локальная проверка установки (в Claude Code, после — полный перезапуск сессии):
 
 ```
@@ -34,6 +38,8 @@ bash scripts/check-skills.sh --local md2pdf=~/Project/md2pdf md2pdf   # HEAD к�
 
 Перед релизом плагина, меняющим манифест или раскладку скиллов, — прогон с `--local`; после
 релиза — без него. Плагин без строки в контракте печатается как unchecked, не как ok.
+Строка `<plugin> not-in-codex` — Codex обязан отказать в установке (политика записи); успешная
+установка — MISMATCH.
 Правка самого скрипта — `bash scripts/test-check-skills.sh` (офлайн, поддельные `claude`/`codex`:
 сравнение и все пути к rc 2).
 
@@ -94,6 +100,9 @@ bash scripts/check-skills.sh --local md2pdf=~/Project/md2pdf md2pdf   # HEAD к�
 
 1. Плагин создаётся в собственном репозитории по макету: `plugins/<name>/` с `.claude-plugin/plugin.json`, скиллы в `plugins/<name>/skills/<skill>/SKILL.md` (см. umar-s/loop-foundry как образец).
 2. Сюда добавляется одна запись в `marketplace.json` с `git-subdir`-источником: `url` репозитория, `path: plugins/<name>`, `ref: main`.
-3. `claude plugin validate .`, коммит, push.
+3. Скиллы, которые он показывает модели, — в `scripts/expected-skills.txt`; плагин, которому в
+   Codex нечего делать, — `<plugin> not-in-codex` плюс `"policy": {"installation": "NOT_AVAILABLE"}`
+   в записи.
+4. `claude plugin validate .`, `bash scripts/check-skills.sh <name>`, коммит, push.
 
 Таблицу плагинов в README держать синхронной с `marketplace.json`.

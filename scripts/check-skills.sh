@@ -6,7 +6,9 @@
 # skills each harness lists, without a model call, with scripts/expected-skills.txt:
 #   Claude Code — `claude plugin details <plugin>@<catalog>` ("Skills (N)  a, b");
 #   Codex       — `codex debug prompt-input`, the prompt the model would get ("- plugin:skill: …").
-# The comparison is exact per plugin: a missing skill and an extra one both fail.
+# The comparison is exact per plugin: a missing skill and an extra one both fail. A plugin the
+# contract marks `not-in-codex` must be refused by `codex plugin add` — the catalog entry's
+# `"policy": {"installation": "NOT_AVAILABLE"}`; an install that succeeds is a mismatch.
 #
 #   bash scripts/check-skills.sh                        # every plugin in the contract, as published
 #   bash scripts/check-skills.sh premortem md2pdf       # only these
@@ -50,8 +52,11 @@ in_contract=$(awk '!/^#/ && NF {split($1, a, ":"); print a[1]}' "$EXPECTED" | so
 mapfile -t CONTRACT <<<"$in_contract"
 [ ${#WANT[@]} -gt 0 ] || WANT=("${CONTRACT[@]}")
 for p in "${WANT[@]}"; do
+  [[ $p =~ $NAME_RE ]] || die "$EXPECTED: '$p' is not a plugin name"
   grep -Fqx -- "$p" <<<"$in_contract" || die "$p has no line in $EXPECTED"
 done
+# Plugins Codex must refuse; the contract as a whole is validated with the comparison below.
+not_in_codex=$(awk '!/^#/ && NF == 2 && $1 !~ /:/ && $2 == "not-in-codex" {print $1}' "$EXPECTED")
 # --local entries: in the catalog and a git clone, checked before anything is written.
 in_catalog=$(python3 -c 'import json, sys; print("\n".join(p["name"] for p in json.load(open(sys.argv[1]))["plugins"]))' \
   "$CATALOG/.claude-plugin/marketplace.json")
@@ -94,7 +99,17 @@ claude plugin marketplace add "$W/market" >/dev/null 2>&1 || die "claude: market
 codex plugin marketplace add "$W/market" >/dev/null 2>&1 || die "codex: marketplace add failed"
 for p in "${WANT[@]}"; do
   claude plugin install "$p@$NAME" >/dev/null 2>&1 || die "claude: install $p@$NAME failed"
-  codex plugin add "$p@$NAME" >/dev/null 2>&1 || die "codex: add $p@$NAME failed"
+  if ! grep -Fqx -- "$p" <<<"$not_in_codex"; then
+    codex plugin add "$p@$NAME" >/dev/null 2>&1 || die "codex: add $p@$NAME failed"
+  # Refused by the policy is the expected outcome, installed is a mismatch; any other failure
+  # says nothing about the policy: 2.
+  elif codex plugin add "$p@$NAME" > "$W/codex-add.$p" 2>&1; then
+    echo installed > "$W/codex.$p"
+  elif grep -Fq "plugin \`$p\` is not available for install" "$W/codex-add.$p"; then
+    echo refused > "$W/codex.$p"
+  else
+    die "codex: add $p@$NAME failed, and not as refused by policy"
+  fi
   claude plugin details "$p@$NAME" > "$W/claude.$p" 2>&1 || die "claude: details $p@$NAME failed"
 done
 (cd "$W/cwd" && codex debug prompt-input x </dev/null) > "$W/codex.prompt" 2>/dev/null \
@@ -107,19 +122,34 @@ python3 - "$EXPECTED" "$CATALOG/.claude-plugin/marketplace.json" "$W" "${WANT[@]
 import json, re, sys
 try:
     expected_path, catalog_path, work, want = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4:]
-    expected, contract = {}, set()
+    expected, contract, not_in_codex = {}, set(), set()
     for line in open(expected_path, encoding="utf-8"):
         f = line.split()
         if not f or f[0].startswith("#"):
             continue
-        if len(f) != 2 or f[1] not in ("both", "claude", "codex") or ":" not in f[0]:
+        if len(f) == 2 and f[1] == "not-in-codex" and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", f[0]):
+            plugin = f[0]
+            not_in_codex.add(plugin)
+        elif len(f) == 2 and f[1] in ("both", "claude", "codex") and ":" in f[0]:
+            plugin = f[0].split(":", 1)[0]
+        else:
             raise ValueError(f"bad contract line: {line.strip()!r}")
-        plugin = f[0].split(":", 1)[0]
         contract.add(plugin)
         for h in ("claude", "codex"):
             expected.setdefault((plugin, h), set())
             if f[1] in ("both", h):
                 expected[(plugin, h)].add(f[0])
+    for p in not_in_codex:
+        if expected[(p, "codex")]:
+            raise ValueError(f"bad contract: {p} is not-in-codex and lists skills for Codex")
+    # not-in-codex plugins: what `codex plugin add` did — refused by the policy, or installed
+    refused = {}
+    for p in want:
+        if p in not_in_codex:
+            status = open(f"{work}/codex.{p}", encoding="utf-8").read().strip()
+            if status not in ("refused", "installed"):
+                raise ValueError(f"codex plugin add {p}: unknown outcome {status!r}")
+            refused[p] = status == "refused"
     seen = {}
     for p in want:
         # "  Skills (3)  ci-gate, decompose, task" — the count guards against a shortened list
@@ -167,6 +197,10 @@ rc = 0
 for p in want:
     for h in ("claude", "codex"):
         exp, got = " ".join(sorted(expected[(p, h)])), " ".join(sorted(seen[(p, h)]))
+        if h == "codex" and p in not_in_codex:
+            exp, skills = "not installable", got
+            got = exp if refused[p] and not skills else \
+                ("refused" if refused[p] else "installed") + f", skills: {skills or 'none'}"
         if exp == got:
             print(f"ok        {h:<6}  {p}  [{got or 'none'}]")
         else:

@@ -1,8 +1,11 @@
 # Skills each catalog plugin must show the model, per harness — the contract
 # scripts/check-skills.sh checks. One line per skill: <plugin>:<skill> <both|claude|codex>.
+# Or <plugin> not-in-codex: Codex must refuse to install the plugin (its catalog entry carries
+# "policy": {"installation": "NOT_AVAILABLE"}); its Claude skills are its `claude` lines, if any.
 # A plugin with no line here is reported as unchecked, never as passing.
-# research-pipeline, voxscribe and statusline are not listed yet: their Codex status is
-# decided in S5/S6 of docs/claude-codex-stack.md.
+# This is what the model is shown, not what runs there: research-pipeline's skills are listed in
+# Codex, but its pipeline is a Claude command (listed by Claude as a skill) driving Claude
+# subagents — docs/claude-codex-stack.md, S6.
 
 task-flow:ci-gate both
 task-flow:decompose both
@@ -12,3 +15,18 @@ loop-foundry:loop-foundry both
 co-rar:co-rar both
 md2pdf:md2pdf both
 premortem:premortem both
+research-pipeline:anti-cringe both
+research-pipeline:grounding-protocol both
+research-pipeline:io-yaml-safe both
+research-pipeline:manager-research both
+research-pipeline:phase-checkpoint both
+research-pipeline:quality-gate both
+research-pipeline:research-planner both
+research-pipeline:resume-checkpoint both
+research-pipeline:search-safeguard both
+research-pipeline:silence-protocol both
+research-pipeline:synthesis both
+research-pipeline:yaml-repair both
+research-pipeline:research-pipeline claude
+voxscribe:voxscribe both
+statusline not-in-codex

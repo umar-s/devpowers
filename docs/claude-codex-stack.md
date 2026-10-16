@@ -112,6 +112,8 @@ Security CLI / GitLab.
 | 32 | Codex 0.162.1 в системном промпте: «Resolve relative paths against the directory containing a filesystem-backed `SKILL.md`»; Claude Code печатает модели «Base directory for this skill: <dir>». Относительный `scripts/…` в SKILL.md работает в обоих, абсолютный `~/.claude/skills/<skill>/…` — ни в одном для установленного плагина (тот лежит в версионном кэше харнесса) | строки бинаря Codex; md2pdf 1.3.0 ✅ 2026-10-16 |
 | 33 | **В песочнице Codex (`workspace-write`, сеть выключена — по умолчанию) не стартовали ни проверенные сборки Chromium, ни snap-приложения.** `codex sandbox -P :workspace`: AF_UNIX `socketpair` создаётся, но `setsockopt`/`shutdown`/`send` на нём возвращают EPERM; `/proc/self/status` в песочнице — `Seccomp: 2`, `Seccomp_filters: 1`, `NoNewPrivs: 1` (на хосте 0; в бинаре Codex режим зовётся `LinuxSeccomp`) — механизм отказа этим не доказан, только соседство. Chromium Playwright падает на crashpad (`setsockopt: Operation not permitted`), его headless-shell — на `shutdown`; `--no-sandbox` и отключение crashpad не помогают. snap: chromium — `snap-confine is packaged without necessary permissions … cap_dac_override`; `cups.*` — раньше, `snap run` не может создать `~/snap/<name>` и `/run/user/<uid>/snap.<name>` (read-only). Вне песочницы snap-chromium не читает `/tmp` (`ERR_FILE_NOT_FOUND`) и скрытые каталоги `~/.x/` (`ERR_ACCESS_DENIED`). `-c sandbox_workspace_write.network_access=true` при `-P :workspace` не действует (сеть так и осталась выключена) — песочница с сетью не измерена | md2pdf, Python-проба в песочнице ✅ 2026-10-16 |
 | 34 | `uv run` в песочнице `workspace-write`: `~/.cache/uv` только на чтение → `Could not acquire lock … Read-only file system`; с `UV_CACHE_DIR` в cwd — нет сети на загрузку зависимостей. Скрипты premortem (`uv run scripts/cli.py …`) на Codex идут только с эскалацией; голый `python3` проходит, если зависимости уже стоят в системном Python | ✅ 2026-10-16 |
+| 35 | Codex 0.162.1 читает у записи legacy-маркетплейса `.claude-plugin/marketplace.json` поле `"policy": {"installation": "NOT_AVAILABLE"}`: `codex plugin add statusline@devpowers` → ``Error: plugin `statusline` is not available for install in marketplace `devpowers` ``, rc 1; в `codex plugin list` запись остаётся (`not installed`). Уже установленный плагин после появления политики остаётся `installed, enabled`. Claude Code 2.1.301: `claude plugin validate` → `Unknown field 'policy'. Claude Code ignores it at load time`, «passed with warnings», rc 0; `claude plugin install` ставит | лаборатории с маркетплейсом по локальному пути в изолированных `CLAUDE_CONFIG_DIR`/`CODEX_HOME` ✅ 2026-10-16 |
+| 36 | Инвентари расходятся на командах. Claude `plugin details` относит к Skills команду из автообнаруженного `commands/` (research-pipeline: `Skills (13)`, среди них `research-pipeline`), а команду из поля манифеста `"commands": ["./commands/setup.md"]` — нет (statusline: `Skills (0)`); причина не установлена. В выводе `codex debug prompt-input` нет ни команды research-pipeline, ни имён его `agents/*.md` — только 12 скиллов. В пустом `CODEX_HOME` тот же вывод перечисляет и личные скиллы из `~/.agents/skills` (без префикса плагина) — `check-skills.sh` фильтрует по `<plugin>:` | `check-skills.sh`, `claude plugin details`, `codex debug prompt-input` ✅ 2026-10-16 |
 
 ---
 
@@ -198,10 +200,10 @@ auto-режима (факт 13) и вложенные песочницы; при
 | **premortem** (форк) | skill в `./premortem/` | до 1.0.2 **не виден** ✅ | `"skills": ["./premortem/"]` в его же `.claude-plugin/plugin.json` — оба харнесса видят скилл, оверлей не нужен (факт 30); файлы апстрима не тронуты. Скрипты (`uv run scripts/cli.py`) в песочнице Codex не идут — эскалация (факт 34) | **S4 → упаковка 1.0.2 ✅** (1.0.1 был занят: тег 2026-08-22 при `plugin.json` 1.0.0) |
 | **co-rar** | skill | виден ✅, чистая рамка | payload без харнесс-специфики → релиза нет; README «In Codex» (`co-rar@co-rar`, `co-rar@devpowers`, `$co-rar:co-rar`), в `CLAUDE.md` — проверка без модели | **S4 ✅ docs, без версии** |
 | **md2pdf** | skill + scripts | виден ✅; в Quick start захардкожен `~/.claude/skills/md2pdf/scripts/md2pdf.py` — неверен в **обоих** харнессах для установленного плагина | `<SKILL_DIR>/scripts/md2pdf.py` (факт 32); на Codex — запуск вне песочницы с первой попытки (факт 33); предупреждение snap и о скрытых каталогах; первые тесты | **S4 → 1.3.1 ✅** |
-| **devpowers** (каталог) | marketplace.json, README, docs | читается ✅ | README «Install → Codex», этот документ, CHANGELOG; второй манифест `.agents/plugins/marketplace.json` **не нужен** | **S0/S5** |
-| **research-pipeline** | skills, `agents/*.md` (Claude subagents), `commands/`, `workflows/` | скиллы загрузятся; агенты — Claude-формат, у Codex агенты — `.codex/agents/*.toml` на уровне проекта, не плагина | отдельный этап: генерация `.codex/agents/*.toml` в проект пользователя + harness-раздел в manager-research | отложено (S6) |
-| **voxscribe** | skills + python scripts | должен работать (скрипты запускаются из shell) | «fan out to subagents» → harness-заметка | отложено (S6) |
-| **statusline** | Claude `statusLine` | **N/A** — у Codex TUI нет такого контракта | ничего; в README пометка «Claude Code only» | S5 |
+| **devpowers** (каталог) | marketplace.json, README, docs, `scripts/check-skills.sh` | читается ✅ | README «Install → Codex» и матрица «Claude Code and Codex», этот документ, CHANGELOG; statusline — `policy.installation: NOT_AVAILABLE`; контракт видимости скиллов на все 9 плагинов; второй манифест `.agents/plugins/marketplace.json` **не нужен** | **S0 ✅, S5 ✅** |
+| **research-pipeline** | skills, `agents/*.md` (Claude subagents), `commands/`, `workflows/` | 12 скиллов видны ✅; команды `/research-pipeline:research-pipeline` и агентов в промпте нет (факт 36); агенты — Claude-формат, у Codex агенты — `.codex/agents/*.toml` на уровне проекта, не плагина | отдельный этап: генерация `.codex/agents/*.toml` в проект пользователя + harness-раздел в manager-research | отложено (S6) |
+| **voxscribe** | skills + python scripts | скилл виден ✅; не прогонялся (скрипты запускаются из shell) | «fan out to subagents» → harness-заметка | отложено (S6) |
+| **statusline** | Claude `statusLine`: команда + SessionStart-хук | **N/A** — команда Claude Code и хук, читающий его `settings.json` и советующий `/statusline:setup` | запись каталога с `"policy": {"installation": "NOT_AVAILABLE"}` — Codex в установке отказывает (факт 35); README «Claude Code only»; в контракте `statusline not-in-codex` | **S5 ✅** |
 
 ---
 
@@ -407,11 +409,33 @@ skills и без файлов настроек; Codex-ревьюер с `--ignor
   контракт (task-flow, prediction-protocol, loop-foundry, co-rar, md2pdf,
   premortem) — ok в обоих харнессах.
 
-### 4.5 S0/S5 — devpowers
+### 4.5 S0/S5 — devpowers — ✅ S5 выпущено 2026-10-16
 
-- S0 (этот коммит): документ, CHANGELOG-запись, README «Install → in Codex».
-- S5 (после S1–S4): README-матрица «Claude Code / Codex», пометка statusline
-  «Claude Code only», описания записей с именами `$plugin:skill`.
+- S0 (2026-09-27): документ, CHANGELOG-запись, README «Install → in Codex».
+- S5. План был: README-матрица «Claude Code / Codex», пометка statusline «Claude Code
+  only», описания записей с именами `$plugin:skill`. Что вышло и чем отличается:
+  - **statusline закрыт для Codex политикой записи, а не только пометкой.** Codex
+    читает у записи legacy-маркетплейса `"policy": {"installation": "NOT_AVAILABLE"}`
+    и отказывает в `codex plugin add` (факт 35). Для Codex в плагине ничего нет:
+    команда Claude Code и SessionStart-хук, который читает `settings.json` Claude Code и
+    советует `/statusline:setup`. Цена — одно постоянное предупреждение `claude plugin
+    validate` (`Unknown field 'policy'`), в CLAUDE.md каталога оно названо ожидаемым.
+    Уже стоящие установки политика не снимает: `codex plugin remove
+    statusline@devpowers` — руками.
+  - **Имена `$plugin:skill` — в README-матрице, а не в `description` записей.**
+    Описание показывают оба харнесса, а `$` — синтаксис Codex; матрица даёт обе формы
+    (`$…` в Codex, `/…` в Claude Code). В описания записей вошли только факты о
+    доступности: statusline — «Claude Code only — Codex refuses to install it»,
+    research-pipeline — в Codex грузятся только скиллы, пайплайн идёт в Claude Code.
+    `metadata.description` — «plugins for Claude Code and Codex CLI».
+  - **Контракт `scripts/expected-skills.txt` покрывает все девять плагинов** — строки
+    unchecked больше нет. research-pipeline: 12 скиллов `both` и
+    `research-pipeline:research-pipeline claude` — команда, которую Claude показывает как
+    скилл (факт 36); voxscribe — `both`; statusline — новая форма строки
+    `<plugin> not-in-codex`: проверка ждёт отказа `codex plugin add` с текстом политики,
+    успешная установка — MISMATCH (rc 1), любая другая ошибка — rc 2. Контракт — о
+    видимости, не о работоспособности: пайплайн research-pipeline и прогон voxscribe в
+    Codex остаются в S6.
 
 ---
 
@@ -466,6 +490,9 @@ codex plugin add loop-foundry@devpowers
 codex plugin add co-rar@devpowers
 codex plugin add md2pdf@devpowers
 codex plugin add premortem@devpowers                     # скилл виден с упаковки 1.0.2 (S4)
+codex plugin add research-pipeline@devpowers             # только скиллы: пайплайн — команда и агенты Claude (S6)
+codex plugin add voxscribe@devpowers                     # скилл виден; в Codex не прогонялся (S6)
+# statusline@devpowers — отказ политикой каталога (S5); стоявший раньше: codex plugin remove statusline@devpowers
 codex plugin list
 ```
 
@@ -804,6 +831,7 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | `"skills": ["./"]` в манифесте, скилл в подкаталоге | Claude скилл видит, Codex — нет, молча | `"skills": ["./<skill>/"]` (факт 30); после правки манифеста — `scripts/check-skills.sh --local <plugin>=<clone>` |
 | Chromium, snap-приложения в песочнице Codex | не стартуют: `setsockopt`/`shutdown`/`send` → EPERM (в песочнице `Seccomp: 2`, `NoNewPrivs: 1`), snap-confine без capabilities, `snap run` без записи в `~/snap` (факт 33) | эскалация с первого вызова (`require_escalated`, md2pdf 1.3.1 так и делает); в `codex exec` — никак |
 | `uv run` в песочнице Codex | `~/.cache/uv` read-only, сети нет → скрипт не стартует (premortem) | эскалация (правило префикса `uv run`); **не** давать песочнице писать в кэш uv через `writable_roots`: модель подложит пакет, который потом исполнится вне песочницы |
+| Политика `NOT_AVAILABLE` в записи каталога | Codex отказывает только новым установкам: стоявший плагин остаётся `installed, enabled` (факт 35); Claude Code поле игнорирует с предупреждением `validate` | после введения политики — `codex plugin remove <plugin>@<marketplace>` руками; `Unknown field 'policy'` — единственное ожидаемое предупреждение (CLAUDE.md каталога) |
 | Тег релиза без бампа `plugin.json` | оба харнесса ставят старую версию (premortem `plugin-v1.0.1` стоял как 1.0.0), кэш `…/<plugin>/<старая версия>/` | перед тегом сверить версию в `plugin.json` с тегом (у task-flow это делает `scripts/release-check.sh`, у форков — руками) |
 
 ---
@@ -851,6 +879,10 @@ codex-security; фаза 8 task считает пайплайн зелёным �
    вызове md2pdf (не после отказа), PDF появляется; `$premortem:premortem` на
    небольшом плане — `uv run` идёт через эскалацию (одобрить с префиксом), отчёт
    ложится в `docs/premortem/` проекта, а не в кэш плагина.
+10. S5 — ✅ 2026-10-16 без модели: `scripts/check-skills.sh` — все 9 плагинов по
+    контракту в обоих харнессах, statusline в Codex — `not installable`; каталог без
+    политики даёт MISMATCH. **Вам**: `codex plugin remove statusline@devpowers` в своём
+    `~/.codex` — там стоит 1.0.2, поставленный до S5.
 
 Лабораторный каталог этой сессии (изолированный `CODEX_HOME` с
 установленными плагинами, `lab`-репо с диффом, `lab-market` с двумя

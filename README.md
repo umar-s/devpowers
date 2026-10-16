@@ -5,13 +5,13 @@
 [![changelog](https://img.shields.io/badge/changelog-dated-0b7285)](CHANGELOG.md)
 [![license](https://img.shields.io/badge/license-MIT-0b7285)](LICENSE)
 
-A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), served from one marketplace. Each plugin lives in its own repository; this repo is a thin catalog that references them — add the marketplace once, install any plugin, get updates as the plugins evolve.
+A product line of plugins for Claude Code and Codex CLI by [umar-s](https://github.com/umar-s), served from one marketplace. Each plugin lives in its own repository; this repo is a thin catalog that references them — add the marketplace once, install any plugin, get updates as the plugins evolve.
 
 ## Plugins
 
 | Plugin | What it does | Repo |
 |--------|--------------|------|
-| **[research-pipeline](https://github.com/umar-s/research-pipeline)** | Multi-phase parallel research pipeline: decompose a topic → research aspects in parallel → synthesize → quality gate → fully-cited report. Source tiering, slop detection, git-based checkpointing, WebSearch/Exa backends. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
+| **[research-pipeline](https://github.com/umar-s/research-pipeline)** | Multi-phase parallel research pipeline: decompose a topic → research aspects in parallel → synthesize → quality gate → fully-cited report. Source tiering, slop detection, git-based checkpointing, WebSearch/Exa backends. In Codex only the skills load: the pipeline itself — the `/research-pipeline:research-pipeline` command and its subagents — runs in Claude Code. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
 | **[loop-foundry](https://github.com/umar-s/loop-foundry)** | Loop-engineering pipeline: applicability filter → YouTrack backlog triage → LOOP_SPECs → gap analysis → runners → staged autonomy ladder (shadow → gated → autonomous). Refuses to build loops where the approach does not apply. Companion: prediction-protocol — receipts for one-way commands in every tick, required past shadow. | [umar-s/loop-foundry](https://github.com/umar-s/loop-foundry) |
 | **[co-rar](https://github.com/umar-s/co-rar)** | CO-RAR — Continuous Resilient Adversarial Reasoning in Codeless Design: diagnostic (N/S/A conditions), seven design principles, adversarial-critic and feedback-loop playbooks for systems that must mutate under pressure. Companion skill for loop-foundry's statistical-gate loops. | [umar-s/co-rar](https://github.com/umar-s/co-rar) |
 | **[voxscribe](https://github.com/umar-s/research-pipeline)** | Russian-first audio/video → readable text via faster-whisper on CPU: lecture, dialogue (pyannote diarization) and folder fan-out modes. Idempotent, atomic writes, no-speech guard. Lives in the research-pipeline repo. | [umar-s/research-pipeline](https://github.com/umar-s/research-pipeline) |
@@ -19,7 +19,25 @@ A product line of Claude Code plugins by [umar-s](https://github.com/umar-s), se
 | **[premortem](https://github.com/umar-s/premortem)** | Premortem advisor: finds the concrete ways a plan could fail before commitment — multi-agent silent scan, mitigation triplets, history snapshots, reverse-premortem (Klein 2007 + Kahneman outside view). Fork of [AndyShaman/premortem](https://github.com/AndyShaman/premortem). | [umar-s/premortem](https://github.com/umar-s/premortem) |
 | **[task-flow](https://github.com/umar-s/task-flow)** | Three skills, one pipeline: **decompose** → **task** → **ci-gate**. `decompose` cuts an epic/feature/spec into dependency-linked tasks (DoD with truths, story points, graph, collision-checked parallelism waves); `task` takes one ticket ingest (declared blast-radius tier — ceremony scales, gates don't) → 2× premortem → TDD with a red-suite baseline, anti-gaming rules and a diff-scoped mutation check → adversarial clean-context code-review → conditional security-review + capability diff → live verify → close with an evidence block of real numbers; `ci-gate` scaffolds the deterministic merge floor — gitleaks secret-scan + tool-agnostic migration-guard + changed-line coverage threshold + protected-branch, every layer failing closed — into any GitLab/GitHub repo. | [umar-s/task-flow](https://github.com/umar-s/task-flow) |
 | **[prediction-protocol](https://github.com/umar-s/prediction-protocol)** | Prediction before action. A fail-closed `PreToolUse` gate refuses one-way shell commands (migrations, force-push, merge, deploy, restart, remote exec, mutating HTTP, grants/secrets, recursive delete) unless the session holds a receipt for that exact command — hypothesis, a measurement command, a falsifiable claim — and the `predict` CLI opens the receipt, runs the measurement itself and grades HIT / MISS / INCONCLUSIVE into a journal with a refuted-beliefs ledger. Halt at the first miss; the hook never emits `allow`; `task` and `loop-foundry` call `"${PREDICT:?}" on` and get `predict-gate: active\|absent`. | [umar-s/prediction-protocol](https://github.com/umar-s/prediction-protocol) |
-| **[statusline](https://github.com/umar-s/statusline)** | A status line installed as a plugin: model + effort + fast mode, a colour-coded context bar with token counts, the 5-hour and 7-day rate limits with time to reset, project and git branch, MCP count, session time — tail segments dropped instead of wrapped when the terminal is narrow. Claude Code takes its main `statusLine` from `settings.json` only, so the plugin ships `/statusline:setup` (namespaced — bare `/statusline` is Claude Code's own built-in command), which writes a version-agnostic launcher (plugin updates need no settings change) and refuses to replace a `statusLine` it did not write. Parts of the script come from [AndyShaman/claude-statusline](https://github.com/AndyShaman/claude-statusline) (MIT), itemised in its NOTICE. | [umar-s/statusline](https://github.com/umar-s/statusline) |
+| **[statusline](https://github.com/umar-s/statusline)** | Claude Code only — Codex refuses to install it. A status line installed as a plugin: model + effort + fast mode, a colour-coded context bar with token counts, the 5-hour and 7-day rate limits with time to reset, project and git branch, MCP count, session time — tail segments dropped instead of wrapped when the terminal is narrow. Claude Code takes its main `statusLine` from `settings.json` only, so the plugin ships `/statusline:setup` (namespaced — bare `/statusline` is Claude Code's own built-in command), which writes a version-agnostic launcher (plugin updates need no settings change) and refuses to replace a `statusLine` it did not write. Parts of the script come from [AndyShaman/claude-statusline](https://github.com/AndyShaman/claude-statusline) (MIT), itemised in its NOTICE. | [umar-s/statusline](https://github.com/umar-s/statusline) |
+
+## Claude Code and Codex
+
+One catalog serves both harnesses. A skill is called `$plugin:skill` in Codex and `/plugin:skill` in Claude Code; either model also picks a skill up from its description. Which skills each harness shows the model is checked without a model call by `scripts/check-skills.sh` against `scripts/expected-skills.txt` — all nine plugins as of 2026-10-16.
+
+| Plugin | Skills, as called in Codex | Claude Code | Codex |
+|--------|----------------------------|-------------|-------|
+| task-flow | `$task-flow:decompose`, `$task-flow:task`, `$task-flow:ci-gate` | ✅ | ✅ since 1.12.0; cross-review by the other model (`xreview.sh`) |
+| prediction-protocol | `$prediction-protocol:prediction-protocol` | ✅ | ✅ since 1.1.0; hooks run only after `/hooks` → Trust, and the gate denies where Claude Code asks |
+| loop-foundry | `$loop-foundry:loop-foundry` | ✅ | ✅ since 1.2.0; a tick runs under `claude -p` or `codex exec` |
+| co-rar | `$co-rar:co-rar` | ✅ | ✅ nothing harness-specific in it |
+| md2pdf | `$md2pdf:md2pdf` | ✅ | ✅ since 1.3.1; no Chromium build tried started in the Codex `workspace-write` sandbox, so the agent asks to run outside it (not possible under `codex exec`) |
+| premortem | `$premortem:premortem` | ✅ | skill loads since packaging 1.0.2; its `uv run` scripts need the same escalation |
+| research-pipeline | `$research-pipeline:manager-research` and 11 building-block skills | ✅ `/research-pipeline:research-pipeline` | skills only: Codex does not show the model the pipeline command, and its three subagents are Claude Code `agents/*.md` |
+| voxscribe | `$voxscribe:voxscribe` | ✅ | skill loads; not yet run on Codex (folder mode fans out subagents) |
+| statusline | — (`/statusline:setup` is a Claude Code command) | ✅ | ✗ not installable (catalog policy): it is a Claude Code command plus a hook that reads Claude Code's `settings.json` |
+
+`statusline` is the one entry with a Codex-only field, `"policy": {"installation": "NOT_AVAILABLE"}`: `codex plugin add statusline@devpowers` refuses it, Claude Code ignores the field (`claude plugin validate .` warns `Unknown field 'policy'` — expected). The policy stops new installs only: a copy installed in Codex earlier stays until `codex plugin remove statusline@devpowers`. What each plugin needed for Codex and how to run the line across both harnesses — [docs/claude-codex-stack.md](docs/claude-codex-stack.md).
 
 ## Install
 
@@ -56,7 +74,7 @@ codex plugin add prediction-protocol@devpowers
 codex plugin list
 ```
 
-Skills are then listed as `plugin:skill` (`$task-flow:task`, `$co-rar:co-rar`, …). Plugin hooks (prediction-protocol) run only after you review and trust them with `/hooks` in a Codex session. What works today, what each plugin still needs on Codex, and how to run the line across both harnesses — [docs/claude-codex-stack.md](docs/claude-codex-stack.md). `statusline` is Claude Code only.
+Skills are then listed as `plugin:skill` (`$task-flow:task`, `$co-rar:co-rar`, …). Plugin hooks (prediction-protocol) run only after you review and trust them with `/hooks` in a Codex session. Per-plugin status — [Claude Code and Codex](#claude-code-and-codex) above; `statusline` is Claude Code only.
 
 ## How this repo works
 
@@ -92,10 +110,11 @@ Forked repos are packaged additively: a single `.claude-plugin/plugin.json` is a
 
 1. Create the plugin in its own repo following the layout above (`plugins/<name>/` with `.claude-plugin/plugin.json`).
 2. Add one entry to `.claude-plugin/marketplace.json` here: `name`, `displayName`, `description`, `category`, `homepage`, and a `git-subdir` source with `path: plugins/<name>`, `ref: main`.
-3. Validate and push:
+3. Add the skills it must show the model to `scripts/expected-skills.txt` (`<plugin>:<skill> both|claude|codex`, or `<plugin> not-in-codex` for an entry Codex must refuse), then validate, check and push:
 
 ```bash
 claude plugin validate .
+bash scripts/check-skills.sh <name>
 ```
 
 Catalog conventions follow [anthropics/knowledge-work-plugins](https://github.com/anthropics/knowledge-work-plugins): lean entries, no version duplication, `displayName` for presentation.
