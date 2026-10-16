@@ -37,10 +37,30 @@ case "$1 $2" in
   "plugin marketplace") exit 0 ;;
   "plugin add") [ "$fail" = codex-add ] && exit 1; exit 0 ;;
   "debug prompt-input") [ "$fail" = prompt-input ] && exit 1
-    [ "$fail" = prompt-no-skills ] && { echo '[]'; exit 0; }
-    printf '[{"content":"## Skills'
-    while read -r s; do [ -n "$s" ] && printf '\\n- %s: a skill (file: /c/SKILL.md)' "$s"; done < "$FAKE/codex"
-    printf '"}]\n'; exit 0 ;;
+    # the shape Codex 0.162.1 prints: messages, one text with the skills block; the entry lines
+    # come from $FAKE/codex. Garbled variants for the controls that must exit 2.
+    exec python3 - "$FAKE/codex" "$fail" <<'PY'
+import json, sys
+skills = [s.strip() for s in open(sys.argv[1]) if s.strip()]
+fail = sys.argv[2]
+block = "\n".join(["## Skills", "A skill is…", "### Available skills", "- imagegen: not a plugin skill"]
+                  + [f"- {s}: a skill (file: /c/SKILL.md)" for s in skills] + ["</skills_instructions>"])
+msgs = [{"type": "message", "role": "developer", "content": [{"type": "input_text", "text": block}]},
+        {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "x"}]}]
+if fail == "prompt-no-skills":
+    msgs = msgs[1:]
+if fail == "prompt-not-json":
+    print("BROKEN ## Skills\\n- premortem:premortem: text"); sys.exit(0)
+if fail == "prompt-two-blocks":
+    msgs.append(msgs[0])
+if fail == "prompt-entry-outside":   # the entries sit in another message, the block is empty
+    msgs[0]["content"][0]["text"] = "## Skills\n### Available skills\n</skills_instructions>"
+    msgs[1]["content"][0]["text"] = "\n".join(f"- {s}: a skill" for s in skills)
+if fail == "prompt-bad-entry":
+    msgs[0]["content"][0]["text"] = block.replace("</skills_instructions>", "- no-description\n</skills_instructions>")
+print(json.dumps(msgs))
+PY
+    ;;
 esac
 exit 3
 EOF
@@ -102,6 +122,11 @@ run prompt-input       2 "$CONTRACT2" premortem md2pdf "$both" prompt-input prem
 run details-garbled    2 "$CONTRACT2" premortem md2pdf "$both" details-garbled premortem
 run details-count      2 "$CONTRACT2" premortem md2pdf "$both" details-count premortem
 run prompt-no-skills   2 "$CONTRACT2" premortem md2pdf "$both" prompt-no-skills premortem
+run prompt-not-json    2 "$CONTRACT2" premortem md2pdf "$both" prompt-not-json premortem
+run prompt-not-json-claude-only 2 'premortem:premortem claude' premortem '' '' prompt-not-json premortem
+run prompt-two-blocks  2 "$CONTRACT2" premortem md2pdf "$both" prompt-two-blocks premortem
+run prompt-entry-outside 2 "$CONTRACT2" premortem md2pdf "$both" prompt-entry-outside premortem
+run prompt-bad-entry   2 "$CONTRACT2" premortem md2pdf "$both" prompt-bad-entry premortem
 run bad-contract-line  2 'premortem:premortem everywhere' premortem md2pdf "$both" '' premortem
 
 # --local takes the clone's committed HEAD, at the entry's own subdirectory, and leaves the other

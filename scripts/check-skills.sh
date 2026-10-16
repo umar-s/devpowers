@@ -119,10 +119,26 @@ try:
         if len(names) != int(m.group(1)):
             raise ValueError(f"claude plugin details {p}: Skills ({m.group(1)}) lists {len(names)}")
         seen[(p, "claude")] = {f"{p}:{n}" for n in names}
-    prompt = open(f"{work}/codex.prompt", encoding="utf-8").read()
-    if "## Skills" not in prompt:
-        raise ValueError("codex debug prompt-input: no '## Skills' section")
-    entries = set(re.findall(r"\\n- ([A-Za-z0-9_.-]+:[A-Za-z0-9_.-]+): ", prompt))
+    # A JSON list of messages; exactly one text carries "### Available skills", followed by one
+    # "- <name>: <description>" line per skill up to the first other line.
+    messages = json.load(open(f"{work}/codex.prompt", encoding="utf-8"))
+    if not isinstance(messages, list):
+        raise ValueError("codex debug prompt-input: not a JSON list")
+    texts = [c["text"] for m in messages if isinstance(m, dict) and isinstance(m.get("content"), list)
+             for c in m["content"] if isinstance(c, dict) and isinstance(c.get("text"), str)]
+    blocks = [t for t in texts if "### Available skills" in t]
+    if len(blocks) != 1:
+        raise ValueError(f"codex debug prompt-input: {len(blocks)} '### Available skills' blocks, expected 1")
+    entries = set()
+    for line in blocks[0].split("### Available skills", 1)[1].split("\n")[1:]:
+        if not line.startswith("- "):
+            break
+        m = re.match(r"- (\S+?): ", line)
+        if not m:
+            raise ValueError(f"codex debug prompt-input: unreadable skill entry {line[:80]!r}")
+        entries.add(m.group(1))
+    if not entries:
+        raise ValueError("codex debug prompt-input: the skill list is empty")
     for p in want:
         seen[(p, "codex")] = {e for e in entries if e.startswith(p + ":")}
     plugins = [x["name"] for x in json.load(open(catalog_path, encoding="utf-8"))["plugins"]]
