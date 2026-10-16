@@ -1,0 +1,14 @@
+# Skills each catalog plugin must show the model, per harness — the contract
+# scripts/check-skills.sh checks. One line per skill: <plugin>:<skill> <both|claude|codex>.
+# A plugin with no line here is reported as unchecked, never as passing.
+# research-pipeline, voxscribe and statusline are not listed yet: their Codex status is
+# decided in S5/S6 of docs/claude-codex-stack.md.
+
+task-flow:ci-gate both
+task-flow:decompose both
+task-flow:task both
+prediction-protocol:prediction-protocol both
+loop-foundry:loop-foundry both
+co-rar:co-rar both
+md2pdf:md2pdf both
+premortem:premortem both
