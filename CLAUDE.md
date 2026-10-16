@@ -34,6 +34,8 @@ bash scripts/check-skills.sh --local md2pdf=~/Project/md2pdf md2pdf   # HEAD к�
 
 Перед релизом плагина, меняющим манифест или раскладку скиллов, — прогон с `--local`; после
 релиза — без него. Плагин без строки в контракте печатается как unchecked, не как ok.
+Правка самого скрипта — `bash scripts/test-check-skills.sh` (офлайн, поддельные `claude`/`codex`:
+сравнение и все пути к rc 2).
 
 ## Релизы и версии в линейке
 

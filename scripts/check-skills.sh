@@ -13,12 +13,15 @@
 #   bash scripts/check-skills.sh --local premortem=~/Project/premortem premortem
 #                                                       # that clone's committed HEAD, not GitHub
 # Exit: 0 all match · 1 a mismatch · 2 the check could not run.
-set -euo pipefail
+set -Eeuo pipefail
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 CATALOG=$(cd "$HERE/.." && pwd)
 EXPECTED=$HERE/expected-skills.txt
 die() { echo "check-skills: $*" >&2; exit 2; }
+# Any step that fails outside an explicit check is "could not run" (2), never a mismatch (1):
+# `set -e` alone would exit with the failed command's own code.
+trap 'echo "check-skills: line $LINENO failed: $BASH_COMMAND" >&2; exit 2' ERR
 
 declare -A LOCAL=()
 WANT=()
@@ -26,13 +29,24 @@ while [ $# -gt 0 ]; do
   case $1 in
     --local) [ $# -ge 2 ] && [[ $2 == *=* ]] || die "--local needs <plugin>=<repo-dir>"
              LOCAL[${2%%=*}]=${2#*=}; shift 2 ;;
-    -h|--help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) awk 'NR > 1 && /^#/ {sub(/^# ?/, ""); print; next} NR > 1 {exit}' "$0"; exit 0 ;;
     -*) die "unknown option $1" ;;
     *) WANT+=("$1"); shift ;;
   esac
 done
 command -v claude >/dev/null || die "claude CLI not found"
 command -v codex >/dev/null || die "codex CLI not found"
+
+# The contract first, before anything is installed: unreadable or empty is "could not run".
+# Plugins to check: the contract's, or the ones named — each must be in the contract.
+[ -r "$EXPECTED" ] || die "no contract: $EXPECTED"
+in_contract=$(awk '!/^#/ && NF {split($1, a, ":"); print a[1]}' "$EXPECTED" | sort -u)
+[ -n "$in_contract" ] || die "$EXPECTED lists no skills"
+mapfile -t CONTRACT <<<"$in_contract"
+[ ${#WANT[@]} -gt 0 ] || WANT=("${CONTRACT[@]}")
+for p in "${WANT[@]}"; do
+  grep -qx -- "$p" <<<"$in_contract" || die "$p has no line in $EXPECTED"
+done
 
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
@@ -64,13 +78,6 @@ EOF
 git -C "$W/market" init -q
 git -C "$W/market" add -A
 git -C "$W/market" -c user.name=check -c user.email=check@localhost commit -qm check
-
-# Plugins to check: the contract's, or the ones named — each must be in the contract.
-mapfile -t CONTRACT < <(awk '!/^#/ && NF {split($1, a, ":"); print a[1]}' "$EXPECTED" | sort -u)
-[ ${#WANT[@]} -gt 0 ] || WANT=("${CONTRACT[@]}")
-for p in "${WANT[@]}"; do
-  printf '%s\n' "${CONTRACT[@]}" | grep -qx -- "$p" || die "$p has no line in $EXPECTED"
-done
 
 claude plugin marketplace add "$W/market" >/dev/null 2>&1 || die "claude: marketplace add failed"
 codex plugin marketplace add "$W/market" >/dev/null 2>&1 || die "codex: marketplace add failed"
