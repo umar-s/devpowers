@@ -56,6 +56,12 @@ if fail == "prompt-two-blocks":
 if fail == "prompt-entry-outside":   # the entries sit in another message, the block is empty
     msgs[0]["content"][0]["text"] = "## Skills\n### Available skills\n</skills_instructions>"
     msgs[1]["content"][0]["text"] = "\n".join(f"- {s}: a skill" for s in skills)
+if fail == "prompt-blank-then-extra":   # a blank line, then a skill the contract does not have
+    msgs[0]["content"][0]["text"] = block.replace("</skills_instructions>", "\n- premortem:extra: x\n</skills_instructions>")
+if fail == "prompt-unclosed":
+    msgs[0]["content"][0]["text"] = block.replace("\n</skills_instructions>", "")
+if fail == "prompt-two-blocks-one-text":
+    msgs[0]["content"][0]["text"] = block + "\n### Available skills\n- premortem:extra: x\n</skills_instructions>"
 if fail == "prompt-bad-entry":
     msgs[0]["content"][0]["text"] = block.replace("</skills_instructions>", "- no-description\n</skills_instructions>")
 print(json.dumps(msgs))
@@ -127,6 +133,9 @@ run prompt-not-json-claude-only 2 'premortem:premortem claude' premortem '' '' p
 run prompt-two-blocks  2 "$CONTRACT2" premortem md2pdf "$both" prompt-two-blocks premortem
 run prompt-entry-outside 2 "$CONTRACT2" premortem md2pdf "$both" prompt-entry-outside premortem
 run prompt-bad-entry   2 "$CONTRACT2" premortem md2pdf "$both" prompt-bad-entry premortem
+run prompt-blank-then-extra 2 "$CONTRACT2" premortem md2pdf "$both" prompt-blank-then-extra premortem
+run prompt-unclosed    2 "$CONTRACT2" premortem md2pdf "$both" prompt-unclosed premortem
+run prompt-two-blocks-one-text 2 "$CONTRACT2" premortem md2pdf "$both" prompt-two-blocks-one-text premortem
 run bad-contract-line  2 'premortem:premortem everywhere' premortem md2pdf "$both" '' premortem
 
 # --local takes the clone's committed HEAD, at the entry's own subdirectory, and leaves the other
