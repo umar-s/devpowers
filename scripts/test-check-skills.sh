@@ -124,6 +124,13 @@ run empty-contract-all 2 '# comments only'       premortem md2pdf "$both" ''
 run unknown-plugin     2 "$CONTRACT2" premortem md2pdf "$both" ''           nosuch
 run local-not-git      2 "$CONTRACT2" premortem md2pdf "$both" ''           --local premortem="$T/bin" premortem
 run local-not-catalog  2 "$CONTRACT2" premortem md2pdf "$both" ''           --local nosuch="$T/clone" premortem
+run local-empty-name   2 "$CONTRACT2" premortem md2pdf "$both" ''           --local "=$T/clone" premortem
+run bad-plugin-name    2 "$CONTRACT2" premortem md2pdf "$both" ''           ../premortem
+run local-traversal    2 "$CONTRACT2" premortem md2pdf "$both" ''           --local "../../../escape=$T/clone" premortem
+# $W is $TMPDIR/tmp.*, so $W/market/local/../../../escape would have been $TMPDIR/escape
+if [ -e "$T/case-local-traversal/tmp/escape" ]; then
+  echo "FAIL  local-traversal wrote outside its work directory"; fails=$((fails + 1))
+fi
 run mktemp-fails       2 "$CONTRACT2" premortem md2pdf "$both" mktemp       premortem
 run git-init-fails     2 "$CONTRACT2" premortem md2pdf "$both" git-init     premortem
 run claude-install     2 "$CONTRACT2" premortem md2pdf "$both" claude-install premortem

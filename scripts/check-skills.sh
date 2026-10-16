@@ -23,15 +23,20 @@ die() { echo "check-skills: $*" >&2; exit 2; }
 # `set -e` alone would exit with the failed command's own code.
 trap 'echo "check-skills: line $LINENO failed: $BASH_COMMAND" >&2; exit 2' ERR
 
+# Plugin names end up in paths under the work directory: one plain component, nothing else.
+NAME_RE='^[A-Za-z0-9][A-Za-z0-9._-]*$'
 declare -A LOCAL=()
 WANT=()
 while [ $# -gt 0 ]; do
   case $1 in
     --local) [ $# -ge 2 ] && [[ $2 == *=* ]] || die "--local needs <plugin>=<repo-dir>"
-             LOCAL[${2%%=*}]=${2#*=}; shift 2 ;;
+             name=${2%%=*}
+             [[ $name =~ $NAME_RE ]] || die "--local: '$name' is not a plugin name"
+             LOCAL[$name]=${2#*=}; shift 2 ;;
     -h|--help) awk 'NR > 1 && /^#/ {sub(/^# ?/, ""); print; next} NR > 1 {exit}' "$0"; exit 0 ;;
     -*) die "unknown option $1" ;;
-    *) WANT+=("$1"); shift ;;
+    *) [[ $1 =~ $NAME_RE ]] || die "'$1' is not a plugin name"
+       WANT+=("$1"); shift ;;
   esac
 done
 command -v claude >/dev/null || die "claude CLI not found"
@@ -47,6 +52,13 @@ mapfile -t CONTRACT <<<"$in_contract"
 for p in "${WANT[@]}"; do
   grep -qx -- "$p" <<<"$in_contract" || die "$p has no line in $EXPECTED"
 done
+# --local entries: in the catalog and a git clone, checked before anything is written.
+in_catalog=$(python3 -c 'import json, sys; print("\n".join(p["name"] for p in json.load(open(sys.argv[1]))["plugins"]))' \
+  "$CATALOG/.claude-plugin/marketplace.json")
+for p in "${!LOCAL[@]}"; do
+  grep -qx -- "$p" <<<"$in_catalog" || die "--local $p: no such plugin in the catalog"
+  git -C "${LOCAL[$p]}" rev-parse --git-dir >/dev/null 2>&1 || die "--local $p: ${LOCAL[$p]} is not a git clone"
+done
 
 W=$(mktemp -d)
 trap 'rm -rf "$W"' EXIT
@@ -56,7 +68,6 @@ mkdir -p "$CLAUDE_CONFIG_DIR" "$CODEX_HOME" "$W/market/.claude-plugin" "$W/cwd"
 # The catalog as published, except --local entries: those point at a `git archive HEAD` of the
 # clone (what a release would ship), at the entry's own subdirectory.
 for p in "${!LOCAL[@]}"; do
-  git -C "${LOCAL[$p]}" rev-parse --git-dir >/dev/null 2>&1 || die "--local $p: ${LOCAL[$p]} is not a git clone"
   mkdir -p "$W/market/local/$p"
   git -C "${LOCAL[$p]}" archive HEAD | tar -x -C "$W/market/local/$p"
 done
