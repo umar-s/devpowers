@@ -48,10 +48,12 @@ Security CLI / GitLab.
    классификатор **запрещает** запуск `codex exec` с правом записи (получил
    отказ «Create Unsafe Agents» ✅), а из песочницы Claude вложенная
    песочница Codex (bwrap) не стартует. Раннер ни того, ни другого не имеет.
-4. **Гетерогенное ревью — самая дешёвая и самая ценная часть.** Ничего не
-   строить: `codex exec review --base <ветка>` (штатный ревьюер Codex +
-   `## Code Review Rules` из AGENTS.md) и `claude -p` с бриф-шаблоном
-   `code-review-prompt.md` из task-flow в read-only. Два детерминированных
+4. **Гетерогенное ревью — самая дешёвая и самая ценная часть.** Готово в
+   task-flow 1.12.0: `xreview.sh` отдаёт бриф `code-review-prompt.md` другой
+   модели headless — read-only по построению и в изоляции от сессии автора
+   (что для этого нужно, оказалось нетривиальным: §1, факты 19–20), плюс
+   штатный `codex exec review --base <ветка>` с `## Code Review Rules` из
+   AGENTS.md как дополнительное мнение. Два детерминированных
    пола (ci-gate) + два LLM-прохода (task 6b одной моделью, Codex Security
    другой). Codex Security в GitLab CI — по **API-ключу** (отдельный счёт,
    не подписка) либо ChatGPT-логин раннер-пользователя на приватном
@@ -90,6 +92,11 @@ Security CLI / GitLab.
 | 16 | Env хука плагина: `PLUGIN_ROOT`, `PLUGIN_DATA`, `CLAUDE_PLUGIN_ROOT`, `CLAUDE_PLUGIN_DATA`; у пользовательского хука ничего из этого. Шелл модели: `CODEX_SESSION_ID` (= `session_id` хука), `CODEX_THREAD_ID`, `CODEX_SANDBOX_NETWORK_DISABLED=1`; `bin/` плагина в PATH не добавляется. **Утечка:** Codex, запущенный из шелла Claude Code, наследует `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_SESSION_ID`, `CLAUDECODE` и пр. в свои хуки и в шелл модели — харнесс нельзя определять по `CLAUDE_*` | ✅ 2026-10-15 |
 | 17 | Trust хуков: `~/.codex/config.toml` → `[hooks.state."<plugin>@<marketplace>:hooks/hooks.json:<event>:<group>:<handler>"] trusted_hash = "sha256:…"`; хэш — не файла, а нормализованной идентичности `{event_name, matcher, hooks:[{type, command (плейсхолдеры не раскрыты), timeout (default 600), async, statusMessage}]}` → TOML → JSON с сортировкой ключей → SHA-256 (`codex-rs/hooks/src/engine/discovery.rs::hook_hash`, `config/src/fingerprint.rs`) | воспроизведён в python, совпал со всеми 6 живыми записями claude-mem ✅ 2026-10-15 |
 | 18 | Платформенная таблица Codex через `platform-probe.sh --codex`: deny-JSON и exit 2 блокируют; `ask`, exit 1, битый JSON и превышение таймаута → hook Failed, **команда выполняется**. SessionStart `additionalContext` принимается (модель отказывается цитировать «скрытый контекст», но хук Completed). Песочница — свой pid-namespace (PID 1 = `codex`), предка по `/proc` не найти | ✅ 2026-10-15 |
+| 19 | Ревьюер `claude -p` получает больше, чем `--tools`: по умолчанию 9 SessionStart-хуков пользовательских плагинов (claude-mem пересказывает историю проекта — рассказ автора), без пользовательских настроек — 0; **`.claude/settings.json` и `settings.local.json`, закоммиченные в проверяемом диффе, исполняют свои хуки и `apiKeyHelper` при старте `-p`-сессии** (даже в недоверенном workspace — там игнорируется только `permissions.allow`); `--tools` ограничивает лишь встроенные инструменты — MCP проекта/аккаунта остаются. Безопасно: `--setting-sources "" --settings '{"disableAllHooks":true}' --strict-mcp-config --mcp-config '{"mcpServers":{}}' --disable-slash-commands` — OAuth при этом работает; разрешённый `Bash(git diff *)` не read-only (`git diff --output=<file>`, сокращения длинных опций) | lab-репозиторий с маркерами ✅ 2026-10-16 |
+| 20 | `codex exec` по умолчанию — 4 SessionStart-хука (claude-mem, prediction-protocol), с `--ignore-user-config` — 0, проектный `.codex/hooks.json` не исполняется; **но пользовательские `.rules` грузятся и под `--ignore-user-config`: `allow`-правило выполняет команду вне read-only песочницы** (маркер записан) — ревьюеру нужен `--ignore-rules` | изолированный `CODEX_HOME` ✅ 2026-10-16 |
+| 21 | `codex exec -p <name>` в 0.162 = слой `$CODEX_HOME/<name>.config.toml` (help: `CONFIG_PROFILE_V2`), факт 7 подтверждён; роли агентов — `<config folder>/agents/*.toml` (`agent-roles/src/loader.rs`), без `developer_instructions` роль отбрасывается («Ignoring malformed agent role definition») | исходники `rust-v0.162.1` + негативный контроль ✅ |
+| 22 | execpolicy `prefix_rule` сравнивает точные токены на точных позициях: `git push --force-with-lease=<ref>`, `git push -fu`, `git push origin main --force` не видит правило `forbidden` для `["git","push",["--force",…]]` → push нельзя разрешать `allow` вообще (только `prompt`); решения сравнимы `allow < prompt < forbidden`; примеры `match`/`not_match` валидируются при загрузке | `codex execpolicy check` ✅ 2026-10-16 |
+| 23 | Официальный минимальный GitLab-пример Codex Security: в `node:26-bookworm-slim` нет `git` и `python3` (его `git merge-base` и экспорт не запускаются); без `--fail-on-severity` сканер не выходит с 1 (гейт зелёный при любых находках); committed-diff скан отказывается от грязного дерева (ничего нельзя писать в checkout до скана); родитель `--output-dir` не может быть group/world-writable без sticky; `--mock` даёт синтетические находки без ключа и LLM; ключ в CI — `OPENAI_API_KEY`/`CODEX_API_KEY` (`CODEX_SECURITY_API_KEY` — защищённая переменная шаблона) | docker + `--mock`, `scripts/codex-security-mock.sh` 20/20 ✅ 2026-10-16 |
 
 ---
 
@@ -134,7 +141,7 @@ Security CLI / GitLab.
 | `docs/decompose/<epic>.md`, тикеты в трекере | decompose (Claude) | builder любой модели | task-flow |
 | `docs/specs/<TASK>.spec.md` (DoD → check table, premortem edges) | builder, фаза 1 | reviewer (слоты бриф-шаблона) | task-flow |
 | ветка `feature/<TASK>` + MR | builder | reviewer, CI | git |
-| `docs/reviews/<TASK>-<sha>-<model>.md` | reviewer другой модели | builder (fix(review): …) | 🔧 S2 |
+| `docs/reviews/<TASK>-<sha7>-<by>[-security].md` | `xreview.sh` (ревьюер другой модели) | builder (fix(review): …) | task-flow 1.12.0 |
 | `docs/evidence/<TASK>.md`, `REFUTED.md` | `predict` (CLI) | оба | prediction-protocol |
 | `loops/journal/<loop>.jsonl` | раннер | оператор | loop-foundry |
 
@@ -145,8 +152,8 @@ Security CLI / GitLab.
 
 Интерактивно вы работаете в **одной** из двух TUI и зовёте скилл
 (`/task-flow:task` в Claude, `$task-flow:task` в Codex); вторая модель
-приходит как ревьюер через `xreview.sh` (🔧 S2) — короткий headless-вызов из
-скилла или из терминала. Пакетно — раннер loop-foundry, где исполнитель
+приходит как ревьюер через `xreview.sh` (task-flow 1.12.0) — короткий
+headless-вызов из скилла или из терминала. Пакетно — раннер loop-foundry, где исполнитель
 тика — `codex exec` **или** `claude -p`, верификатор — другая модель
 (🔧 S3). Причины не «оркестрировать из сессии Claude»: классификатор
 auto-режима (факт 13) и вложенные песочницы; причина не оркестрировать из
@@ -170,7 +177,7 @@ auto-режима (факт 13) и вложенные песочницы; при
 | Плагин | Компоненты | На Codex сегодня | Что меняется | Этап |
 |---|---|---|---|---|
 | **prediction-protocol** | hooks (PreToolUse×2, PostToolUse, SessionStart), CLI `bin/predict`, skill | хуки грузятся (после trust) ⚠, но `ask` → failed → **команда выполняется** — на Codex гейт сегодня fail-open в двух клетках таблицы; `PREDICT` не экспортируется (нет `CLAUDE_ENV_FILE`); стейт-гард не видит `apply_patch` | `ask`→`deny` на Codex; `apply_patch`-парсер; SessionStart `additionalContext`; glob по обоим кэшам в SKILL; таблица платформы Codex в `hook-engineering.md`; фикстуры Codex в `tests/run.sh`; `platform-probe.sh --codex` | **S1 → 1.1.0** |
-| **task-flow** | 3 skills, `templates/ci-gate`, scripts | скиллы видны ✅; `ROOT` резолвится по пути SKILL.md (fallback уже есть) ✅; «Agent tool / subagent» и `/task` — Claude-термины | раздел Harness в 3 SKILL.md; фазы 6/6b: перекрёстное ревью как предпочтительный dispatch; `references/cross-review.md`; `templates/xreview/xreview.sh`; `templates/ci-gate/gitlab/codex-security.gitlab-ci.yml`; `templates/agents/` (AGENTS.md-скелет, `.codex/agents/reviewer.toml`, `.codex/rules/git.rules`); bindings читаются из `AGENTS.md`/`CLAUDE.md` | **S2 → 1.12.0** |
+| **task-flow** | 3 skills, `templates/ci-gate`, scripts | скиллы видны ✅; `ROOT` резолвится по пути SKILL.md (fallback уже есть) ✅; «Agent tool / subagent» и `/task` — Claude-термины | раздел Harness в 3 SKILL.md; фазы 6/6b: перекрёстное ревью как предпочтительный dispatch; `references/cross-review.md`; `templates/xreview/xreview.sh`; `templates/ci-gate/gitlab/codex-security.gitlab-ci.yml`; `templates/agents/` (AGENTS.md-скелет, `.codex/agents/reviewer.toml`, `.codex/rules/git.rules`); bindings читаются из `AGENTS.md`/`CLAUDE.md` | **S2 → 1.12.0 ✅** |
 | **loop-foundry** | skill + references | скилл виден ✅; контракт раннера завязан на `claude -p --session-id` | `predictions.md`/`ladder.md`/SKILL: executor/verifier per harness (`codex exec -p builder --dangerously-bypass-hook-trust` + `PP_ENTRYPOINT=headless`), `PREDICT` по обоим кэшам, `gate_denies` из событий Codex, поле `model` на роль, гетерогенный verifier как норма | **S3 → 1.2.0** |
 | **premortem** (форк) | skill в `./premortem/` | **не виден** ✅ | оверлей `.codex-plugin/plugin.json` (`skills: "./premortem/"`) — аддитивная упаковка, README форка не трогаем | **S4 → 1.0.1** |
 | **co-rar** | skill | виден ✅, чистая рамка | одна строка в README/SKILL: `$co-rar:co-rar` | **S4 → 1.0.2** |
@@ -234,7 +241,22 @@ TUI/приложении; CLI резолвит сессию из `CODEX_SESSION_
 - Версия 1.1.0 (`plugin.json` + `PP_VERSION`), CHANGELOG, тег, релиз;
   каталог — запись в CHANGELOG devpowers.
 
-### 4.2 S2 — task-flow 1.12.0: «dual-harness + cross-review»
+### 4.2 S2 — task-flow 1.12.0: «dual-harness + cross-review» — ✅ выпущено 2026-10-16
+
+Сделано по пунктам ниже, с поправками, которые дали живые факты (§1,
+строки 19–23) и восемь раундов перекрёстного ревью самого релиза (Codex
+ревьюил через `xreview.sh`, последний раунд — `Ready to merge`): Claude-ревьюер
+**без shell** (материалы диапазона прикладываются к брифу), без MCP, без
+skills и без файлов настроек; Codex-ревьюер с `--ignore-rules`; вердикт —
+**отдельный канал** (две последние строки ответа `REVIEWED <sha>` /
+`VERDICT …`, у 6b `SUMMARY …`), скрипт выносит его в шапку отчёта, а текст
+ревьюера кладёт одним буквальным блоком — разбор вердикта из Markdown дважды
+подряд дал расхождение «человек видит одно, парсер читает другое»; в
+`git.rules` push = `prompt`; Codex Security-шаблоны исправляют официальный
+пример (образ по digest, `git`/`python3`, `--fail-on-severity`, `.post`,
+ничего в checkout до скана, ключ снят до первого дочернего процесса,
+`mktemp`). Дизайн и запись ревью — `task-flow/docs/superpowers/specs/2026-10-16-task-flow-1-12-0-design.md`.
+
 
 - Каждый `SKILL.md` получает раздел **Harness** (≤ 12 строк): имя вызова
   (`/task-flow:task` ↔ `$task-flow:task`), где лежит `ROOT` (уже есть
@@ -395,21 +417,30 @@ approval_policy = "never"
 sandbox_mode = "read-only"
 ```
 
-Правила эскалации (`~/.codex/rules/git.rules`, Starlark): в `workspace-write`
-`.git/` защищён как read-only, т.е. `git commit`/`git push` требуют
-эскалации; под `approval_policy = "never"` без правила они просто падают.
-Разрешаем ровно эти префиксы **вне** песочницы — one-way остаётся за гейтом
-prediction-protocol (PreToolUse срабатывает раньше execpolicy):
+Правила эскалации (`.codex/rules/git.rules` — шаблон `task-flow/templates/agents/`,
+Starlark): в `workspace-write` `.git/` защищён как read-only, т.е. `git commit`
+требует эскалации; под `approval_policy = "never"` без правила он просто
+падает. **`git commit` — `allow`; `git push` — `prompt`** (в TUI одобряет
+человек, под `codex exec` пушит раннер, не модель); force-формы сразу после
+`push` — `forbidden`. Разрешать push целиком нельзя: prefix-правило не видит
+`--force-with-lease=<ref>`, `-fu` и флаг после refspec (факт 22) — исходная
+версия этого раздела с `allow` для push была обходима.
 
 ```python
-prefix_rule(pattern=["git", "commit"], decision="allow", justification="builder commits; .git is read-only inside the sandbox")
-prefix_rule(pattern=["git", "push"],   decision="allow", justification="plain push; --force is denied by the prediction gate without a receipt")
-prefix_rule(pattern=["glab", "mr", "create"], decision="allow", justification="the builder opens the MR")
+prefix_rule(pattern = ["git", "commit"], decision = "allow",  justification = "the builder commits; .git is read-only inside the sandbox")
+prefix_rule(pattern = ["git", "push"],   decision = "prompt", justification = "a push leaves the machine: a person approves it, or the runner pushes")
+prefix_rule(pattern = ["git", "push", ["--force", "-f", "--force-with-lease", "--force-if-includes", "--mirror", "--delete", "-d", "--prune"]],
+            decision = "forbidden", justification = "a history-rewriting or ref-deleting push never comes from the builder")
 ```
 
 ```bash
-codex execpolicy check --pretty --rules ~/.codex/rules/git.rules -- git push --force origin main   # allow по правилу — и deny гейтом ⚠
+codex execpolicy check --pretty --rules .codex/rules/git.rules -- git push origin feature/x          # prompt
+codex execpolicy check --pretty --rules .codex/rules/git.rules -- git push --force origin main       # forbidden
+codex execpolicy check --pretty --rules .codex/rules/git.rules -- git push origin main --force       # prompt (не allow)
 ```
+
+Ревьюер (`xreview.sh`) запускает Codex с `--ignore-rules`: `allow` любого
+правила вывел бы его команды из read-only песочницы (факт 20).
 
 ### 5.4 Сторона Claude Code
 
@@ -472,18 +503,12 @@ enabled = true
 max_concurrent_threads_per_session = 4
 ```
 
-```toml
-# .codex/agents/reviewer.toml — «fresh reviewer subagent» из task фазы 6, если ревьюит сам Codex
-name = "reviewer"
-description = "Read-only adversarial reviewer for task-flow phase 6/6b; receives the filled brief, never the transcript."
-model = "gpt-6-astra"
-model_reasoning_effort = "xhigh"
-sandbox_mode = "read-only"
-developer_instructions = """
-You are the independent reviewer of task-flow phase 6. Follow the brief you receive verbatim; it is the only context you get.
-Read-only on the checkout. Report findings with file:line evidence; end with `Reviewed: <sha>`.
-"""
-```
+Роль ревьюера для собственных субагентов Codex — шаблон
+`task-flow/templates/agents/.codex/agents/reviewer.toml`: `sandbox_mode =
+"read-only"`, обязательные `developer_instructions` (без них Codex роль
+отбрасывает, факт 21), ответ заканчивается двумя машинными строками брифа
+(`REVIEWED <sha>`, затем `VERDICT` или `SUMMARY`). Это запасной путь «та же
+модель»; первый выбор — другая модель через `xreview.sh` (§7.4).
 
 `.codex/rules/git.rules` — те же префиксы, что в §5.3, если хотите держать
 их в репо, а не у пользователя. `.worktreeinclude` — `.env` и прочие
@@ -494,7 +519,9 @@ Read-only on the checkout. Report findings with file:line evidence; end with `Re
 1. `/task-flow:ci-gate` (Claude) или `$task-flow:ci-gate` (Codex) — как
    сейчас: `ci/gate.sh`, `ci-gate.shell.gitlab-ci.yml`, `.gitleaks.toml`,
    `--selftest`.
-2. Codex Security (🔧 S2 шаблон; сегодня — вручную по официальному примеру):
+2. Codex Security — шаблоны task-flow 1.12.0 (`ci-gate` шаг 7,
+   `templates/ci-gate/gitlab/codex-security{,.shell}.gitlab-ci.yml`), собранные
+   из официального scan-only примера с исправлениями (факт 23); исходное описание:
    стадии `security_scan` → `security_gate`, только MR между защищёнными
    ветками одного проекта, `GIT_DEPTH: 0`, скан `--diff $(git merge-base
    $CI_MERGE_REQUEST_DIFF_BASE_SHA $CI_COMMIT_SHA) --head $CI_COMMIT_SHA --json`,
@@ -538,7 +565,7 @@ codex -C ~/Project/<repo>
 `additionalContext` SessionStart (S1) или glob по кэшу, фаза 5 —
 `"$PREDICT" on BA-123 --task`. One-way команда без квитанции → **deny**
 (не «ask», как в Claude): написать `predict open …`, повторить команду.
-Фаза 6: `xreview.sh --by claude` (S2) — или до S2 руками (§7.4).
+Фаза 6: `xreview.sh --by claude` (§7.4).
 
 ### 7.2' Стройка — вариант B: headless из раннера / терминала
 
@@ -562,40 +589,42 @@ already vets hook sources»). Без флага плагинные хуки в h
 
 `/task-flow:task BA-123` — без изменений; ревьюер — Codex (§7.4).
 
-### 7.4 Перекрёстное ревью (до S2 — руками; после — `xreview.sh`)
-
-Бриф заполняется из артефактов, не из памяти: `code-review-prompt.md`
-(слоты `[DOD]`, `[DESIGN_SPEC]`, `[PREMORTEM_EDGES]` из `<TASK>.spec.md`;
-`[BASE_SHA]`/`[HEAD_SHA]` из git) → `/tmp/$TASK.brief.md`.
-
-Codex ревьюит работу Claude:
+### 7.4 Перекрёстное ревью — `xreview.sh` (task-flow 1.12.0)
 
 ```bash
 git fetch --no-tags origin development
-codex exec review --base development -o "docs/reviews/$TASK-$(git rev-parse --short HEAD)-codex.md" </dev/null   # штатный ревьюер + Code Review Rules
-codex exec -p reviewer -C "$PWD" -o "docs/reviews/$TASK-$(git rev-parse --short HEAD)-codex-brief.md" - < "/tmp/$TASK.brief.md"   # наш adversarial-бриф
+ROOT=<каталог установленного task-flow>          # ~/.claude/plugins/cache/devpowers/task-flow/<ver> или ~/.codex/plugins/cache/…
+bash "$ROOT/templates/xreview/xreview.sh" --by codex  --task "$TASK" --base origin/development                   # Codex ревьюит работу Claude
+bash "$ROOT/templates/xreview/xreview.sh" --by claude --task "$TASK" --base origin/development --model opus      # Claude ревьюит работу Codex
+bash "$ROOT/templates/xreview/xreview.sh" --by codex  --task "$TASK" --base origin/development --kind security   # 6b
 ```
 
-Claude ревьюит работу Codex:
+Скрипт заполняет бриф `code-review-prompt.md` / `security-review-prompt.md`
+из `docs/specs/$TASK.spec.md` и git, запускает ревьюера read-only и в
+изоляции (§1, факты 19–20), читает вердикт из двух последних строк ответа и
+пишет `docs/reviews/<TASK>-<sha7>-<by>[-security].md`; exit 0 — чисто, 1 —
+блокирует, 2 — ревью не состоялось (никогда не «чисто»). Подробно, включая
+ручные эквиваленты и что делать с расхождением двух ревью, —
+`task-flow/skills/task/references/cross-review.md`.
 
-```bash
-claude -p --model opus \
-  --allowedTools 'Read,Grep,Glob,Bash(git diff:*),Bash(git show:*),Bash(git log:*),Bash(git grep:*),Bash(git status:*),Bash(git worktree:*)' \
-  --disallowedTools 'Edit,Write,MultiEdit,NotebookEdit,Agent' \
-  < "/tmp/$TASK.brief.md" > "docs/reviews/$TASK-$(git rev-parse --short HEAD)-claude.md"
-```
+Прежние ручные команды этого раздела **не использовать**: `claude -p` с
+`--allowedTools 'Bash(git diff:*)…'` не read-only (`git diff --output=<file>`)
+и в каталоге с проверяемым диффом исполняет его `.claude/settings*.json`
+(хуки, `apiKeyHelper`); `codex exec -p reviewer` без `--ignore-rules`
+выпускает `allow`-команды из песочницы. Штатный `codex exec review --base
+<ветка>` по-прежнему полезен как дополнительное мнение (применяет `## Code
+Review Rules` из `AGENTS.md`), но DoD не грейдит и бриф не принимает.
 
 Дальше — контракт «After the review comes back» из шаблона: Critical/Required
 блокируют, поведенческая находка → fix → **ре-ревью дельты той же чужой
-моделью**, `fix(review): <id>` по коммиту на находку, `Reviewed: <sha>` в
-evidence block. Два ревью нашли одно и то же независимо — приоритет;
-разошлись во вердикте — не усреднять, а решать человеку (или третьим
-прогоном с явным вопросом).
+моделью** (`--base <reviewed sha>`), `fix(review): <id>` по коммиту на
+находку, `reviewed` из шапки отчёта — в evidence block. Два ревью нашли одно
+и то же независимо — приоритет; разошлись во вердикте — не усреднять, а
+решать человеку (или третьим прогоном с явным вопросом).
 
 ### 7.5 Security
 
-- Фаза 6b task (LLM, другой моделью — тем же способом, что 7.4, с
-  `security-review-prompt.md`).
+- Фаза 6b task (LLM, другой моделью): `xreview.sh … --kind security` (§7.4).
 - Локально до MR (без CI и без API-ключа, по подписке):
   `npx @openai/codex-security scan . --diff origin/development --head HEAD --auth chatgpt --output-dir /tmp/sec-$TASK --headless` ⚠
   (чистое дерево обязательно — `--dry-run` это проверяет).
@@ -652,6 +681,11 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 | Имена скиллов | `/task-flow:task` (Claude) ↔ `$task-flow:task` (Codex) | Harness-раздел в SKILL (S2) |
 | Git-маркетплейс с большим репо (claude-mem ≈ 560 МБ) | Codex клонирует с жёстким лимитом 30 с, по таймауту бросает `git clone` и оставляет `~/.codex/.tmp/marketplaces/.staging/marketplace-upgrade-*` (~720 МБ каждый); фоновый refresh повторяет это на каждом старте — за 2,5 дня 88 каталогов, 61 ГБ ✅ 2026-10-15 | источник плагина — локальный клон маркетплейса Claude (`codex plugin marketplace add ~/.claude/plugins/marketplaces/<name>`): без второго клона, версии в lockstep; обновление — `claude plugin marketplace update <name> && codex plugin add <plugin>@<marketplace>`; staging-каталоги удалить |
 | `hook: <Event> Failed` в выводе `codex exec` | хук пропущен как недоверенный/изменившийся **или** его stdout не по контракту Codex. Проверено 2026-10-15: все скрипты rc=0, виновник — `security-guidance` (Anthropic, Claude-only): печатает `{"async":true,…}` + второй JSON — протокол асинхронных хуков Claude Code, для Codex «не один JSON-документ» → Failed на каждом событии | Claude-only плагины с хуками в Codex не ставить (security-guidance, statusline); `codex` → `/hooks` → Trust для остальных; superpowers хуков на Codex не имеет по замыслу автора (`.codex-plugin/plugin.json`: `"hooks": {}`) — бутстрап через описание скилла |
+| `claude -p` в каталоге с проверяемым диффом | дифф, коммитящий `.claude/settings.json` / `settings.local.json`, исполняет хуки и `apiKeyHelper` в ревьюере; `.mcp.json` + `enableAllProjectMcpServers` даёт ему MCP-инструменты; `--tools` их не ограничивает | `xreview.sh` (без файлов настроек, `disableAllHooks`, `--strict-mcp-config`, без shell); вручную — те же флаги (факт 19) |
+| `codex exec --ignore-user-config` как «изоляция» | пользовательские `.rules` всё равно грузятся; `allow` выводит команду из read-only песочницы | `--ignore-rules` у каждого ревьюера (факт 20) |
+| Плагины памяти у ревьюера | claude-mem и др. пересказывают ревьюеру историю реализации — тот самый брифинг автором, который запрещает clean-context | изоляция по умолчанию в `xreview.sh`; опт-аут `XREVIEW_ISOLATE=0` только с причиной |
+| Вердикт LLM-ревью в свободном Markdown | цитата, комментарий, отступ, вложенный fence читаются человеком и парсером по-разному → ложное «чисто» (три раунда ревью подряд) | вердикт отдельным каналом — две последние строки простым текстом; текст ревьюера в отчёте — одним буквальным блоком |
+| Официальный GitLab-пример Codex Security как есть | не стартует на своём образе (нет `git`/`python3`), без порога никогда не падает, грязное дерево = exit 2 | шаблоны task-flow 1.12.0 (факт 23) |
 
 ---
 
@@ -669,9 +703,11 @@ codex-security; фаза 8 task считает пайплайн зелёным �
    обновления до 1.1.0 и `/hooks` → Trust: вне протокола
    `git push --force origin main` → **deny**, текст упоминает «cannot ask».
 3. `"$PREDICT" report` → `gate: seen <utc>` (хук реально срабатывал) — в TUI.
-4. `codex exec -p reviewer --json -o /tmp/r.md review --base master </dev/null` в
-   `lab`-репо с диффом — отчёт с находкой «silent error swallowing» (у меня
-   упёрлось в bwrap).
+4. ✅ 2026-10-16, иначе, чем планировалось: перекрёстное ревью через
+   `xreview.sh` в lab-репо с внесённым дефектом — Codex и Claude независимо
+   нашли подавленную ошибку, off-by-one на обеих границах и отсутствующие
+   тесты (вердикты разобраны, checkout не тронут). Штатный `codex exec review
+   --base master` (с `## Code Review Rules`) по-прежнему не прогнан — **вам**.
 5. ✅ 2026-10-15: `codex plugin marketplace upgrade devpowers && codex plugin add
    prediction-protocol@devpowers` → `…/cache/devpowers/prediction-protocol/1.1.0`;
    trust **не** запросил — `hooks.json` не менял определения хуков (см. §9).

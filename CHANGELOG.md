@@ -14,6 +14,32 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/claude-statusline/releases).
 
+## 2026-10-16 — task-flow 1.12.0: two harnesses and cross-review (S2 of the two-model stack)
+
+- **task-flow** entry unchanged in form; the plugin's 1.12.0 release runs the
+  three skills in Codex CLI (Harness sections, bindings from `AGENTS.md` or
+  `CLAUDE.md`, `ci-gate` no longer reads its payload through a bare
+  `${CLAUDE_PLUGIN_ROOT}`) and sends phases 6 / 6b to the model that did not
+  write the diff: `templates/xreview/xreview.sh`, headless, read-only by
+  construction, isolated from the author's session, with the verdict as a
+  separate channel the script renders into the report header. Also: optional
+  Codex Security GitLab includes (an LLM layer, not the gate) and
+  `templates/agents/` (AGENTS.md / CLAUDE.md skeletons, a read-only reviewer
+  role, `git.rules` where a push prompts). The release was reviewed by Codex
+  through `xreview.sh` itself — eight rounds, the last `Ready to merge`.
+- Facts that moved into `docs/claude-codex-stack.md` §1/§9 (rows 19–23): a
+  `claude -p` reviewer runs the hooks and the `apiKeyHelper` of a
+  `.claude/settings.json` or `settings.local.json` committed in the diff
+  under review unless no settings file loads; `--tools` limits only the
+  built-in tools (MCP stays); `codex exec --ignore-user-config` still loads
+  user `.rules`, and an `allow` there runs the command outside the read-only
+  sandbox; memory plugins replay the author's session into a reviewer (9 and
+  4 SessionStart hooks by default); prefix rules match exact tokens; the
+  official Codex Security GitLab example cannot run on its own image and
+  never fails without a threshold. The §5.3 and §7.4 commands that relied on
+  an allowed `git push` and an allowlisted `git diff` are replaced. No
+  source or ref change.
+
 ## 2026-10-15 — prediction-protocol 1.1.0: the second harness (S1 of the two-model stack)
 
 - **prediction-protocol** entry unchanged in form; the plugin's 1.1.0 release
