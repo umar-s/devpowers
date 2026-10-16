@@ -14,14 +14,17 @@ fails=0
 # The fakes read their answers from $FAKE: claude.<plugin> ("a, b" — the `details` list),
 # codex ("plugin:skill" per line — the prompt's skill entries), refuse (plugins `codex plugin add`
 # refuses as Codex does for a NOT_AVAILABLE entry), fail (one step to fail or garble). The fake
-# claude keeps a copy of the marketplace it was given, in $FAKE/market.
+# claude keeps a copy of the marketplace it was given, in $FAKE/market; both fakes log each
+# install that succeeds to $FAKE/installs.
 mkdir -p "$T/bin" "$T/badgit"
 cat > "$T/bin/claude" <<'EOF'
 #!/usr/bin/env bash
 fail=$(cat "$FAKE/fail" 2>/dev/null)
 case "$1 $2" in
-  "plugin marketplace") cp -r "$4" "$FAKE/market"; exit 0 ;;
-  "plugin install") [ "$fail" = claude-install ] && exit 1; exit 0 ;;
+  "plugin marketplace")   # a future Claude Code that rejects the entry's `policy` field
+    [ "$fail" = claude-market ] && { echo "plugins.8.policy: Unrecognized key" >&2; exit 1; }
+    cp -r "$4" "$FAKE/market"; exit 0 ;;
+  "plugin install") [ "$fail" = claude-install ] && exit 1; echo "claude $3" >> "$FAKE/installs"; exit 0 ;;
   "plugin details") p=${3%@*}; list=$(cat "$FAKE/claude.$p" 2>/dev/null)
     n=$(tr ',' '\n' <<<"$list" | grep -c '[^ ]')
     [ "$fail" = details-count ] && n=$((n + 1))
@@ -35,7 +38,7 @@ cat > "$T/bin/codex" <<'EOF'
 #!/usr/bin/env bash
 fail=$(cat "$FAKE/fail" 2>/dev/null)
 case "$1 $2" in
-  "plugin marketplace") exit 0 ;;
+  "plugin marketplace") [ "$fail" = codex-market ] && exit 1; exit 0 ;;
   "plugin add") [ "$fail" = codex-add ] && { echo "Error: failed to fetch" >&2; exit 1; }
     p=${3%@*}
     if grep -Fqx -- "$p" "$FAKE/refuse"; then
@@ -51,7 +54,7 @@ case "$1 $2" in
         "$p" "$m" "$p" "$m" >&2
       exit 1
     fi
-    exit 0 ;;
+    echo "codex $3" >> "$FAKE/installs"; exit 0 ;;
   "debug prompt-input") [ "$fail" = prompt-input ] && exit 1
     # the shape Codex 0.162.1 prints: messages, one text with the skills block; the entry lines
     # come from $FAKE/codex. Garbled variants for the controls that must exit 2.
@@ -149,6 +152,12 @@ run local-traversal    2 "$CONTRACT2" premortem md2pdf "$both" ''           --lo
 if [ -e "$T/case-local-traversal/tmp/escape" ]; then
   echo "FAIL  local-traversal wrote outside its work directory"; fails=$((fails + 1))
 fi
+for h in claude codex; do   # a harness that rejects the catalog: rc 2, and nothing installed after it
+  run $h-market        2 "$CONTRACT2" premortem md2pdf "$both" $h-market    premortem
+  if [ -e "$T/case-$h-market/fake/installs" ]; then
+    echo "FAIL  $h-market installed after the catalog was rejected"; fails=$((fails + 1))
+  fi
+done
 run mktemp-fails       2 "$CONTRACT2" premortem md2pdf "$both" mktemp       premortem
 run git-init-fails     2 "$CONTRACT2" premortem md2pdf "$both" git-init     premortem
 run claude-install     2 "$CONTRACT2" premortem md2pdf "$both" claude-install premortem

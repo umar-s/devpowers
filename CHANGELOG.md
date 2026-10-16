@@ -53,9 +53,12 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
     have passed.
 
   Plugin names taken from the contract are checked like the ones from arguments.
-  `test-check-skills.sh` now holds 51 controls. Seven of the 14 new ones fail on the
-  previous script, the two for the review finding fail on the first S5 version, and
-  each new branch is caught by a mutation. On the real
+  `test-check-skills.sh` now holds 53 controls. Seven of the 16 new ones fail on the
+  previous script, and the two for the review finding fail on the first S5 version.
+  Two more cover a harness that rejects the catalog at `marketplace add`, as a future
+  Claude Code could reject the `policy` field: rc 2 and nothing installed. Codex's
+  second round asked for them, and dropping either `marketplace add` guard fails
+  them. Each new branch is caught by a mutation. On the real
   harnesses all nine plugins are ok in both, and the catalog without the policy
   gives `MISMATCH codex statusline`. The contract records what the model is shown,
   not what runs: research-pipeline's pipeline and a voxscribe run on Codex are
