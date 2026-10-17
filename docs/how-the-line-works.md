@@ -1,7 +1,7 @@
 # Как работает линейка devpowers: decompose → task → ci-gate, prediction-protocol, loop-foundry, co-rar
 
-Состояние на 2026-10-17. Версии: task-flow **1.14.0**, prediction-protocol **1.2.1**,
-loop-foundry **1.2.0**, co-rar **1.0.1**. Источник истины — `SKILL.md` и `references/`
+Состояние на 2026-10-17. Версии: task-flow **1.14.1**, prediction-protocol **1.2.1**,
+loop-foundry **1.2.1**, co-rar **1.0.1**. Источник истины — `SKILL.md` и `references/`
 каждого плагина; этот документ — карта и объяснение, не замена. Где документ
 и скилл разойдутся, прав скилл.
 

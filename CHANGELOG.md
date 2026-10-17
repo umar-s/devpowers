@@ -14,6 +14,19 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — task-flow 1.14.1: the YouTrack wave's base comes from origin
+
+- **task-flow 1.14.1** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.1)):
+  without `--base`, `task-wave.sh --tracker youtrack` now takes the base from
+  origin's own default branch (`git ls-remote --symref origin HEAD`). 1.14.0
+  took the local `origin/HEAD`, a cached pointer: on a real GitLab workspace it
+  named an old feature branch in four of five clones, and new tasks would have
+  been cut from it without a word. A stale pointer is reported, and an origin
+  that cannot say its default branch stops the run. Codex reviewed it in two
+  rounds; the tests are 107 and run under bash 3.2. No source or ref change here.
+- `docs/epic-to-tasks.md`: the base rule and two new refusal rows;
+  `docs/how-the-line-works.md`: versions.
+
 ## 2026-10-17 — loop-foundry 1.2.1: the AppArmor profile goes on bwrap
 
 - **loop-foundry 1.2.1** ([release](https://github.com/umar-s/loop-foundry/releases/tag/v1.2.1)):

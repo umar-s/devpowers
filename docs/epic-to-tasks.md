@@ -1,7 +1,7 @@
 # Эпик → пул задач → агенты: мануал
 
 Как нарезать эпик на задачи, раздать их агентам (Claude Code и Codex) и довести
-эпик до закрытия. Инструменты — скиллы task-flow (проверено по 1.14.0):
+эпик до закрытия. Инструменты — скиллы task-flow (проверено по 1.14.1):
 
 - `decompose` — эпик → пул задач с графом зависимостей и волнами;
 - `task` — одна задача сквозняком: ingest → spec → premortem ×2 → TDD →
@@ -143,8 +143,10 @@ tmux attach -t wave-<repo>            # войти в сессии
   builder) не трогается. ID можно назвать явно — тогда готовность не
   проверяется.
 - **На каждую** — worktree `../<repo>-DEV-481` на ветке `task-DEV-481` (на
-  GitHub — `../<repo>-<N>`, `task-<N>`) от свежего `origin/HEAD` (GitHub — ветка
-  по умолчанию; `--base develop` — от другой интеграционной ветки) и окно tmux
+  GitHub — `../<repo>-<N>`, `task-<N>`) от ветки по умолчанию, как её называет сам
+  remote (≥ 1.14.1: `git ls-remote`, не локальный `origin/HEAD` — тот бывает
+  устаревшим; `--base develop` — от интеграционной ветки, если она не ветка по
+  умолчанию) и окно tmux
   `DEV-481` (`#<N>`), где уже запущен `claude "/task-flow:task DEV-481"` или
   `codex '$task-flow:task DEV-481'` — по тегу.
 - **Ничего не мержит, не пушит, не удаляет.** Сессии интерактивные: `task`
@@ -166,7 +168,8 @@ tmux attach -t wave-<repo>            # войти в сессии
 | `YOUTRACK_URL must be https://` / `$… is empty` | адрес не `https://` или токен не экспортирован в названной переменной |
 | `answered … with HTTP …` / `not the expected JSON — is YOUTRACK_URL the instance root?` | неверный адрес (часто лишний `/youtrack`), токен, прокси; ответ не 2xx или не JSON — стоп |
 | `'…' is not a link name on this instance` | в `YOUTRACK_BLOCKER_LINKS` имя связи, которого в инстансе нет: YouTrack искал бы его как текст и не нашёл ни одного блокера |
-| `origin/HEAD is not set` | `git remote set-head origin --auto` или `--base <ветка>` |
+| `cannot ask origin for its default branch` / `origin names no default branch` | remote недоступен или не назвал ветку — `--base <интеграционная ветка>` |
+| `note — the local origin/HEAD (…) is stale` | не ошибка: база взята у remote; локальный указатель обновить — `git remote set-head origin --auto` |
 | `returned an issue id that is not KEY-N` | сервер вернул ID странной формы — скрипт его не использует (ID становится путём, веткой и именем окна tmux) |
 
 Задача с обоими тегами/метками `builder:*` пропускается с сообщением — оставь
