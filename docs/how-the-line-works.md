@@ -989,10 +989,8 @@ bump), Σdelta: 38 HIT / 0 MISS / 2 INCONCLUSIVE, n=40». Автономию в�
   модели падает (`bwrap: loopback: Failed RTM_NEWADDR`), TUI просит выйти из песочницы
   почти на каждом шаге. Профиль на бинарь `codex` не помогает — namespace создаёт
   `bwrap` ([claude-codex-stack.md](claude-codex-stack.md) §5.1, факт 43). Смена режима
-  разрешений в TUI действует со следующего хода. Расхождение с плагинами: чек-лист GAPS
-  loop-foundry 1.2.0 (`references/gaps.md`) всё ещё говорит о профиле «для бинаря
-  `codex`» — проверка из него (`codex sandbox -P :workspace -C <checkout> -- true`)
-  верна, текст про бинарь — нет.
+  разрешений в TUI действует со следующего хода. Чек-лист GAPS loop-foundry говорит
+  то же с 1.2.1 (в 1.2.0 там был профиль «для бинаря `codex`»).
 - Codex, запущенный из шелла Claude Code, наследует `CLAUDE_*`: `predict` видит обе
   сессии и отказывает («nested harnesses»), пока не экспортирован `PP_SESSION`.
 - Под протоколом составная Bash-команда с one-way токеном получает deny целиком —

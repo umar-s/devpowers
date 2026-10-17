@@ -14,6 +14,15 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — loop-foundry 1.2.1: the AppArmor profile goes on bwrap
+
+- **loop-foundry 1.2.1** ([release](https://github.com/umar-s/loop-foundry/releases/tag/v1.2.1)):
+  the GAPS checklist and the README now ask for the AppArmor profile on the
+  `bwrap` the Codex sandbox runs, not on the `codex` binary. This is the
+  discrepancy named as known on 2026-10-17 below
+  (`docs/claude-codex-stack.md`, fact 43); `docs/how-the-line-works.md` §10 no
+  longer lists it. Text only, and no source or ref change here.
+
 ## 2026-10-17 — task-flow 1.14.0: the wave launcher on YouTrack
 
 - **task-flow 1.14.0** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.0)):
