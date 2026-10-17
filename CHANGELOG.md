@@ -14,6 +14,33 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — task-flow 1.14.0: the wave launcher on YouTrack
+
+- **task-flow 1.14.0** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.0)):
+  `task-wave.sh --tracker youtrack` starts a YouTrack wave. It talks REST through
+  `curl` and needs no `gh`, so it works with GitLab. It takes `--project` and/or
+  `--epic`, the base is `origin/HEAD`, and the token reaches curl on stdin only.
+  `decompose` writes each task's builder as an exclusive `builder:*` tag or label.
+  - The YouTrack rules were measured on a live instance before the code:
+    - without `$top`, a search silently returns at most 500 issues;
+    - a tag that does not exist yet, named in a query, is a 400;
+    - an unknown link name is searched as text, so a blocked task would read
+      as ready;
+    - a wrong base URL answers 200 with HTML.
+  - tmux 3.4 runs `#(…)` in a window name. A server id is therefore accepted
+    only as `KEY-N`, and every `#` in a window name is doubled.
+  - Codex reviewed the release in four rounds, the last "ready to merge". The
+    branch has 102 controls (59 new) and 21 mutations, all caught. It was run
+    under bash 3.2, then on the live instance: a dry run, and a real launch
+    with stub CLIs.
+  - No source or ref change here. The skills each harness lists are unchanged:
+    `check-skills.sh task-flow` is ok in both.
+- `docs/epic-to-tasks.md`: the YouTrack wave is one command now. The manual
+  gains a refusal table for the YouTrack messages, keeps a hand-run fallback,
+  and the approval assigns the builders. `docs/how-the-line-works.md` follows.
+- `.gitignore`: `.env` — a tracker token lives there for local checks and was
+  one `git add -A` away from a commit.
+
 ## 2026-10-17 — docs: the line manual for two harnesses, YouTrack first, the bwrap profile
 
 - `docs/how-the-line-works.md` brought from 2026-08-23 (task-flow 1.11.0,

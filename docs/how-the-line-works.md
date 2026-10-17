@@ -1,6 +1,6 @@
 # Как работает линейка devpowers: decompose → task → ci-gate, prediction-protocol, loop-foundry, co-rar
 
-Состояние на 2026-10-17. Версии: task-flow **1.13.0**, prediction-protocol **1.2.1**,
+Состояние на 2026-10-17. Версии: task-flow **1.14.0**, prediction-protocol **1.2.1**,
 loop-foundry **1.2.0**, co-rar **1.0.1**. Источник истины — `SKILL.md` и `references/`
 каждого плагина; этот документ — карта и объяснение, не замена. Где документ
 и скилл разойдутся, прав скилл.
@@ -35,7 +35,7 @@ Issues — второй вариант. Пошагово эпик → волны
 
 | Связь | Характер | Где закреплено |
 |---|---|---|
-| decompose → task | handoff: каждый `<TASK-ID>` из драфта исполняется `task`; задачи одной волны — параллельно, по сессии и worktree на задачу (для GitHub Issues — `templates/wave/task-wave.sh`, 1.13.0) | decompose SKILL «Handoff», `epic-to-tasks.md` |
+| decompose → task | handoff: каждый `<TASK-ID>` из драфта исполняется `task`; задачи одной волны — параллельно, по сессии и worktree на задачу (`templates/wave/task-wave.sh`: GitHub Issues с 1.13.0, YouTrack с 1.14.0) | decompose SKILL «Handoff», `epic-to-tasks.md` |
 | task → xreview.sh | фазы 6/6b ревьюит модель, **не** писавшая дифф: `xreview.sh --by <другой харнесс>`, headless, read-only, изолированно от сессии автора; та же модель — только записанный fallback | task SKILL §6/§6b, `cross-review.md` |
 | task → ci-gate | фаза 8 считает пайплайн зелёным только если джобы гейта **присутствуют и прошли**; нет гейта → предложить `ci-gate` | task SKILL §8, «Fixed discipline» |
 | task → prediction-protocol | условно: фаза 5 `"${PREDICT:?}" on`, фаза 7 advisory-receipt на каждый `live` DoD, фаза 8 строка `predict report` | task SKILL §5/§7/§8, `land.md` |
@@ -108,8 +108,12 @@ Issues — второй вариант. Пошагово эпик → волны
 (`tracker-sync.md` §7: `subtask of`, `depends on`, поиск ключа идемпотентности по
 `description:`). Для GitHub Issues отдельного адаптера в скилле нет — общий контракт;
 на стенде `tictactoe-lab` это были sub-issues и `blocked_by` через `gh`. Адаптер пишет
-summary, description, estimate, parent, тип и связи — **меток и тегов не пишет**:
-`builder:*` ставится руками после пуша.
+summary, description, estimate, parent, тип, связи и (с 1.14.0) исполнителя: колонка
+`builder` в таблице драфта — пометка для запуска, не седьмое авторское поле, её можно
+назначить в самом одобрении — становится **взаимоисключающим** тегом/меткой
+`builder:claude` | `builder:codex` (YouTrack: `tag builder:codex`, смена —
+`untag builder:claude tag builder:codex`; GitHub: `--remove-label`/`--add-label`), видна в
+dry-run и сверяется чтением.
 
 ### Фазы (одно todo на фазу, порядок строгий)
 
@@ -138,10 +142,12 @@ BLOCKER) · `wave-parallelism` (одна волна пишет один арте
 **Handoff:** `decompose` останавливается, как только существует well-formed драфт (и,
 опционально, issue); каждый `<TASK-ID>` дальше ведёт `task`, чья фаза 0 читает тикет сама.
 `risk tier:` из карточки — **пол**, не потолок для `task`. Задачи одной волны идут
-параллельно — сессия, worktree и ветка на задачу. Для GitHub Issues это делает
-`templates/wave/task-wave.sh` (1.13.0: готовые = метка `builder:*` и закрытые блокеры,
-окно tmux на задачу, ничего не мержит и не пушит). Для YouTrack скрипта нет — волна
-берётся из таблицы драфта, сессии поднимаются руками ([epic-to-tasks.md](epic-to-tasks.md) §2).
+параллельно — сессия, worktree и ветка на задачу. Это делает
+`templates/wave/task-wave.sh`: окно tmux на задачу, харнесс по тегу/метке `builder:*`,
+ничего не мержит и не пушит. GitHub Issues (1.13.0) — готовые = метка и закрытые
+blocked-by; YouTrack (1.14.0, `--tracker youtrack --epic DEV-480`, REST через `curl`, без
+`gh` — годится для GitLab) — нерешённые подзадачи эпика с тегом, у которых нет
+нерешённого `depends on` ([epic-to-tasks.md](epic-to-tasks.md) §2).
 
 ---
 
@@ -685,10 +691,12 @@ $task-flow:decompose …                                    # то же в Codex
 
 Dry-run печатает план (summary, description, estimate, links `subtask of`/`depends on`,
 ключи идемпотентности, возможные дубликаты) с нулём записей; после второго
-подтверждения — запись и read-back, на выходе список `DEV-481 … DEV-489` с URL. Тег
-`builder:claude` / `builder:codex` ставите в YouTrack руками — `decompose` меток не
-пишет. Дальше по одному тикету на сессию — в харнессе, который назван тегом; задачи одной
-волны — параллельно, каждая в своём worktree ([epic-to-tasks.md](epic-to-tasks.md) §2):
+подтверждения — запись и read-back, на выходе список `DEV-481 … DEV-489` с URL. Исполнителя
+можно назначить в том же одобрении («Codex строит DEV-481 и DEV-483, остальные —
+Claude»): `decompose` ≥ 1.14.0 запишет тег `builder:*`. Дальше по одному тикету на сессию —
+в харнессе, который назван тегом; задачи одной волны — параллельно, каждая в своём
+worktree, одной командой `bash scripts/task-wave.sh --tracker youtrack --epic DEV-480`
+([epic-to-tasks.md](epic-to-tasks.md) §2):
 
 ```
 /task-flow:task DEV-481        # Claude Code
@@ -966,6 +974,7 @@ bump), Σdelta: 38 HIT / 0 MISS / 2 INCONCLUSIVE, n=40». Автономию в�
 | 10-16 | md2pdf · premortem · research-pipeline · voxscribe | 1.3.1 · 1.0.2 · 1.2.0 · 2.1.0 | остальная линейка в Codex; statusline закрыт для Codex политикой каталога; `scripts/check-skills.sh` — контракт видимых скиллов в обоих харнессах |
 | 10-17 | prediction-protocol | 1.2.1 | `--expect lines=0` на пустом выводе — HIT (было `"0\n0"` → MISS) |
 | 10-17 | task-flow | 1.13.0 | `templates/wave/task-wave.sh`: волна готовых задач GitHub Issues — worktree и окно tmux на задачу, харнесс по метке `builder:*` |
+| 10-17 | task-flow | 1.14.0 | `task-wave.sh --tracker youtrack` (REST, без `gh` — GitLab; правила измерены на живом инстансе); ID с сервера только `KEY-N`, `#` в имени окна tmux удвоен; `decompose` пишет исполнителя тегом/меткой `builder:*` |
 | 10-17 | devpowers | docs | правило двух файлов (`AGENTS.md` + `CLAUDE.md` с `@AGENTS.md`) в devpowers, task-flow, prediction-protocol, loop-foundry, co-rar; `epic-to-tasks.md` |
 
 ---
@@ -993,8 +1002,15 @@ bump), Σdelta: 38 HIT / 0 MISS / 2 INCONCLUSIVE, n=40». Автономию в�
   `2>/dev/null`). Состояние смотреть через `predict report` / `predict status`. Правило
   по 1.2.1 не сужено. Обратная сторона: state-guard берёт путь из JSON-текста, без
   парсера, — симлинк или JSON-escaped путь проходят; это растяжка, не граница.
-- `task-wave.sh` (1.13.0) знает только GitHub Issues; для YouTrack волна поднимается
-  руками ([epic-to-tasks.md](epic-to-tasks.md) §2).
+- YouTrack (измерено 2026-10-17): без `$top` поиск молча отдаёт не больше 500 задач;
+  тег, которого ещё нет, в запросе — `400`, а не пустой список; **неизвестное имя
+  связи не отвергается, а ищется как текст** (`blocks: X` на инстансе без `Blocks`
+  нашёл саму X по слову в названии) — `task-wave.sh` 1.14.0 сверяет имена с
+  `/api/issueLinkTypes`; неверный базовый адрес (`/youtrack` на корневой установке) —
+  `200` с HTML.
+- tmux 3.4 раскрывает форматы в имени окна, и `#(…)` выполняется: ID с сервера,
+  ставший именем окна, — исполнение команды. `task-wave.sh` 1.14.0 принимает от
+  YouTrack только `KEY-N` и удваивает `#`.
 - TMUX: путь unix-сокета ≤ 108 символов — `TMUX_TMPDIR` в длинном каталоге (scratchpad
   агента) даёт `File name too long`.
 - Auto-режим Claude Code сам режет heredoc-скрипты с `git push --force`/`rm -rf` —

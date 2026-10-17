@@ -1,7 +1,7 @@
 # Эпик → пул задач → агенты: мануал
 
 Как нарезать эпик на задачи, раздать их агентам (Claude Code и Codex) и довести
-эпик до закрытия. Инструменты — скиллы task-flow (проверено по 1.13.0):
+эпик до закрытия. Инструменты — скиллы task-flow (проверено по 1.14.0):
 
 - `decompose` — эпик → пул задач с графом зависимостей и волнами;
 - `task` — одна задача сквозняком: ingest → spec → premortem ×2 → TDD →
@@ -23,11 +23,10 @@ Issues — второй вариант, на нём собран демо-сте
 > токеном в переменной `<ИМЯ>`. Исполнитель задачи — тег `builder:claude` /
 > `builder:codex`. VCS — <GitLab|GitHub>, интеграционная ветка `<develop>`,
 > MR через `<glab|gh>`, тесты и линт — `<команды>`, мерж — `<self |
-> mr-approval-required>`.»
+> mr-approval-required>`. `task-wave.sh` из шаблонов task-flow — в `scripts/`.»
 
 Для GitHub Issues — то же, но «трекер — GitHub Issues этого репо через `gh`,
-метки `builder:claude`/`builder:codex`/`epic`, `task-wave.sh` из шаблонов
-task-flow — в `scripts/`».
+метки `builder:claude`/`builder:codex`/`epic`».
 
 Агент спросит только про внешние шаги. Гейт (`ci/`, protected branch) предложит
 поставить `task` в фазе 8, на мерже, если его нет. Что после этого лежит в репо — на
@@ -74,15 +73,18 @@ $task-flow:decompose …                                   # то же в Codex
   | исполнитель | тег `builder:claude` / `builder:codex` | метка `builder:*` |
 
   Отдельного адаптера GitHub в скилле нет — общий контракт; на стенде это были
-  sub-issues и `blocked_by` через `gh`. **Метки и теги `decompose` не пишет**:
-  `builder:*` ставишь руками после пуша. Трекер не настроен — стоп на драфте, это
-  штатный исход.
+  sub-issues и `blocked_by` через `gh`. С task-flow 1.14.0 `decompose` пишет
+  исполнителя: колонка `builder` в таблице драфта → тег/метка `builder:*` при
+  пуше (видно в dry-run, сверяется чтением; смена исполнителя снимает прежний
+  тег). Трекер не настроен — стоп на драфте, это штатный исход.
 - Задача с блокирующим открытым вопросом или `<placeholder: …>` в работу не
   идёт, пока значение не появится.
 
-Одобрение — одной фразой: «Одобряю. Пушь в YouTrack, сначала dry-run.» После
-пуша — теги `builder:*` на задачи в YouTrack (или попроси агента отдельным шагом
-через тот же MCP: это уже не `decompose`).
+Одобрение с распределением — одной фразой (назначить исполнителей можно в том же
+одобрении, переодобрять не нужно):
+
+> «Одобряю. Codex строит T1 и T3, остальные — Claude. Пушь в YouTrack, сначала
+> dry-run.»
 
 ## 2. Распределение агентов
 
@@ -102,33 +104,28 @@ MR**. Волна — набор задач, которые можно делат
   волну — прямо попроси «use a workflow»; разумно доводить задачи до открытого
   MR, а мержить самому.
 
-### YouTrack: волна в tmux вручную
-
-`task-wave.sh` 1.13.0 знает только GitHub Issues (читает готовые задачи и
-блокеры через `gh`) — для YouTrack волну поднимаешь сам. Задачи волны берёшь из
-таблицы драфта (`wave`), проверив в YouTrack, что их `depends on` в Done.
-
-```bash
-cd ~/Project/<repo> && git fetch
-tmux new-session -d -s wave-<repo> -n main      # один раз
-for id in DEV-481 DEV-482; do                     # задачи текущей волны с тегом builder:claude
-  git worktree add "../<repo>-$id" -b "$id" "origin/<develop>"
-  tmux new-window -t "wave-<repo>:" -n "$id" -c "../<repo>-$id" "claude '/task-flow:task $id'"
-done
-# с тегом builder:codex — тот же цикл, но последняя команда окна:  "codex '\$task-flow:task $id'"
-tmux attach -t wave-<repo>
-```
-
-Перед `worktree add` убедись, что каталога и ветки ещё нет: прерванная задача
-продолжается в своём старом worktree (`cd ../<repo>-<ID> && claude` → тот же
-`/task-flow:task <ID>` — `task` подхватит `state.md`), а второй агент в одном
-checkout'е — гарантированный конфликт. Эти проверки скрипт для GitHub делает сам;
-здесь — ты.
-
-### GitHub Issues: волна одной командой — `task-wave.sh` (task-flow ≥ 1.13.0)
+### Волна одной командой — `task-wave.sh` (task-flow ≥ 1.14.0)
 
 Скрипт лежит в плагине: `templates/wave/task-wave.sh`. Один раз скопируй его в
-`scripts/` проекта (или попроси агента на шаге 0). Дальше на каждую волну:
+`scripts/` проекта (или попроси агента на шаге 0). Дальше на каждую волну.
+
+**YouTrack** (с GitLab или любым remote; `gh` не нужен — нужны `curl` и `jq`):
+
+```bash
+cd ~/Project/<repo>
+export YOUTRACK_URL=https://youtrack.example.com    # корень инстанса
+export YOUTRACK_TOKEN_VAR=YOUTRACK_TOKEN             # ИМЯ переменной с токеном, не сам токен
+bash scripts/task-wave.sh --tracker youtrack --epic DEV-480 --dry-run   # кого запустит
+bash scripts/task-wave.sh --tracker youtrack --epic DEV-480             # запустить волну
+tmux attach -t wave-<repo>                                              # войти в сессии
+```
+
+Вместо `--epic` — `--project DEV` (вся очередь проекта) или явные ID
+(`… DEV-481 DEV-483`). `TASK_WAVE_TRACKER=youtrack` в окружении заменяет флаг.
+Токен в YouTrack — постоянный токен пользователя; держи его в файле с правами
+600 вне git и экспортируй перед запуском.
+
+**GitHub Issues:**
 
 ```bash
 cd ~/Project/<repo>
@@ -139,13 +136,17 @@ tmux attach -t wave-<repo>            # войти в сессии
 
 Что он делает:
 
-- **Готовые задачи** — открытые issue с меткой `builder:claude` или
-  `builder:codex`, у которых все blocked-by закрыты. Эпик (без метки builder)
-  не трогается. Номера можно назвать явно.
-- **На каждую** — worktree `../<repo>-<N>` на ветке `task-<N>` от свежего
-  `origin/main` (`--base develop` — от другой интеграционной ветки) и окно
-  tmux `#<N>`, где уже запущен `claude "/task-flow:task #N"` или
-  `codex '$task-flow:task #N'` — по метке.
+- **Готовые задачи.** YouTrack: нерешённые подзадачи эпика (или задачи
+  проекта) с тегом `builder:claude` или `builder:codex`, у которых нет
+  нерешённых задач, от которых они `depends on`. GitHub: открытые issue с
+  меткой `builder:*`, у которых все blocked-by закрыты. Эпик (без тега/метки
+  builder) не трогается. ID можно назвать явно — тогда готовность не
+  проверяется.
+- **На каждую** — worktree `../<repo>-DEV-481` на ветке `task-DEV-481` (на
+  GitHub — `../<repo>-<N>`, `task-<N>`) от свежего `origin/HEAD` (GitHub — ветка
+  по умолчанию; `--base develop` — от другой интеграционной ветки) и окно tmux
+  `DEV-481` (`#<N>`), где уже запущен `claude "/task-flow:task DEV-481"` или
+  `codex '$task-flow:task DEV-481'` — по тегу.
 - **Ничего не мержит, не пушит, не удаляет.** Сессии интерактивные: `task`
   спрашивает на ingest и перед мержем.
 - **Прервал — запусти снова.** Существующий worktree подхватывается, сессия
@@ -162,8 +163,33 @@ tmux attach -t wave-<repo>            # войти в сессии
 | `another task-wave holds …/task-wave.lock` | уже идёт другой запуск в этом репо; если процесса нет — удалить каталог блокировки |
 | `tmux session wave-<repo> belongs to …` | одноимённая сессия чужого репо (тот же basename) — закрыть или переименовать её |
 | `cannot read …` / `refusing to guess` | трекер не ответил — это стоп, а не «нет готовых задач» |
+| `YOUTRACK_URL must be https://` / `$… is empty` | адрес не `https://` или токен не экспортирован в названной переменной |
+| `answered … with HTTP …` / `not the expected JSON — is YOUTRACK_URL the instance root?` | неверный адрес (часто лишний `/youtrack`), токен, прокси; ответ не 2xx или не JSON — стоп |
+| `'…' is not a link name on this instance` | в `YOUTRACK_BLOCKER_LINKS` имя связи, которого в инстансе нет: YouTrack искал бы его как текст и не нашёл ни одного блокера |
+| `origin/HEAD is not set` | `git remote set-head origin --auto` или `--base <ветка>` |
+| `returned an issue id that is not KEY-N` | сервер вернул ID странной формы — скрипт его не использует (ID становится путём, веткой и именем окна tmux) |
 
-Задача с обеими метками `builder:*` пропускается с сообщением — оставь одну.
+Задача с обоими тегами/метками `builder:*` пропускается с сообщением — оставь
+один. Блокирующие связи YouTrack — `YOUTRACK_BLOCKER_LINKS` (через `;`, по
+умолчанию `is required for`, то есть «от чего задача зависит»); если в
+инстансе есть и `Blocks` — `is required for;blocks`.
+
+### Вручную, без скрипта
+
+```bash
+cd ~/Project/<repo> && git fetch
+tmux new-session -d -s wave-<repo> -n main      # один раз
+for id in DEV-481 DEV-482; do                     # задачи текущей волны с тегом builder:claude
+  git worktree add "../<repo>-$id" -b "$id" "origin/<develop>"
+  tmux new-window -t "wave-<repo>:" -n "$id" -c "../<repo>-$id" "claude '/task-flow:task $id'"
+done
+# с тегом builder:codex — тот же цикл, но последняя команда окна:  "codex '\$task-flow:task $id'"
+tmux attach -t wave-<repo>
+```
+
+Проверки скрипта (чужой каталог, занятая ветка, живое окно, второй запуск)
+здесь делаешь ты: прерванная задача продолжается в своём старом worktree, а
+второй агент в одном checkout'е — гарантированный конфликт.
 
 ### Работа в tmux (оба варианта)
 
@@ -204,9 +230,12 @@ autonomous.
 - Весь цикл по этому мануалу живьём прогнан только на GitHub Issues
   (`tictactoe-lab`). На YouTrack — нет; в частности `task` в Codex с YouTrack
   (MCP в `.codex/config.toml` или REST) не запускался ни разу.
-- tmux-цикл для YouTrack выше — ручные команды, не скрипт: проверены на
-  одноразовом репо с заглушкой вместо `claude` (окна в своих worktree, команда
-  доходит одним аргументом); проверок `task-wave.sh` (чужой каталог, занятая
-  ветка, живое окно) в нём нет.
+- `task-wave.sh --tracker youtrack` проверен на живом YouTrack (тестовый эпик:
+  готовая, заблокированная, без тега, с двумя тегами, ID в разном регистре) —
+  dry-run и настоящий запуск с заглушками вместо `claude`/`codex`. С настоящими
+  агентами на YouTrack-задачах волна ещё не запускалась.
+- Запись тега `builder:*` из `decompose` 1.14.0 проверена только командным
+  разбором YouTrack (`commands/assist`) и тестовыми фикстурами, созданными той же
+  командой; полный пуш эпика с исполнителями — нет.
 - `task` без трекера, по provisional ID из драфта: он рассчитан на тикет с
   комментариями, так что для полного цикла нужен настроенный трекер.

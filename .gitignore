@@ -4,3 +4,4 @@
 
 # local scratch, never part of the catalog
 src.tmp/
+.env
