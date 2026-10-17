@@ -14,6 +14,22 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — task-flow 1.14.2: the integration branch per clone, CLI flags for the windows
+
+- **task-flow 1.14.2** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.2)):
+  - `git config task-wave.base <branch>` gives a clone's waves their
+    integration branch, for gitflow repositories whose default branch is the
+    production one. The order is `--base` > config > the remote's default.
+    Any base that is given, even empty, must be a branch name: no `@{-1}` and
+    no `HEAD`. It is checked before the backlog is read.
+  - `TASK_WAVE_CLAUDE_ARGS` / `TASK_WAVE_CODEX_ARGS` pass extra flags to the
+    CLI in each window, each as one quoted argument. This upstreams a project's
+    local patch, which expanded them unquoted.
+  - Codex reviewed it in six rounds; the tests are 130, with 11 mutations
+    caught. No source or ref change here.
+- `docs/epic-to-tasks.md`: the two per-project settings.
+  `docs/how-the-line-works.md`: the chronology.
+
 ## 2026-10-17 — task-flow 1.14.1: the YouTrack wave's base comes from origin
 
 - **task-flow 1.14.1** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.1)):
