@@ -1,108 +1,16 @@
-# CLAUDE.md
+@AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+<!-- Claude Code раскрывает импорт выше при загрузке; всё ниже — только для
+     Claude. Файл держать даже пустым: CLAUDE.md, появившийся позже без импорта,
+     молча прячет AGENTS.md от Claude Code. -->
 
-## Что это за репозиторий
+## Claude Code
 
-Зонтичный marketplace-каталог **devpowers** — продуктовая линейка Claude Code-плагинов владельца (umar-s). Здесь нет кода и самих плагинов: только `.claude-plugin/marketplace.json`, записи которого ссылаются на отдельные репозитории плагинов через `git-subdir`-источники с `ref: main` (без фиксации sha — плагины обновляются своими push'ами, релизного шага здесь нет).
+- Локальная проверка установки (после — полный перезапуск сессии):
 
-Версии плагинов здесь не хранятся — единственный источник версии каждого плагина — его собственный `plugin.json`. Конвенции каталога взяты из anthropics/knowledge-work-plugins: лаконичные записи (`name`, `displayName`, `description`, `category`, `homepage`, `source`), без дублирования версий.
+  ```
+  /plugin marketplace add /home/serpens/Project/devpowers
+  /plugin install <name>
+  ```
 
-## Команды
-
-Проверка каталога после правок:
-
-```bash
-claude plugin validate .
-```
-
-Ожидаемое предупреждение ровно одно — `plugins[N].policy: Unknown field 'policy'` у statusline:
-`"policy": {"installation": "NOT_AVAILABLE"}` читает только Codex (отказывает в `codex plugin add`),
-Claude Code поле игнорирует. Любое другое предупреждение — разбирать.
-
-Локальная проверка установки (в Claude Code, после — полный перезапуск сессии):
-
-```
-/plugin marketplace add /home/serpens/Project/devpowers
-/plugin install <name>
-```
-
-Какие скиллы видит модель в **обоих** харнессах — без вызова модели, в одноразовых
-`CLAUDE_CONFIG_DIR`/`CODEX_HOME` (свои не трогаются); контракт — `scripts/expected-skills.txt`,
-сравнение точное (недостающий и лишний скилл — оба провал):
-
-```bash
-bash scripts/check-skills.sh                                   # как опубликовано (клоны с GitHub)
-bash scripts/check-skills.sh --local md2pdf=~/Project/md2pdf md2pdf   # HEAD клона — перед тегом
-```
-
-Перед релизом плагина, меняющим манифест или раскладку скиллов, — прогон с `--local`; после
-релиза — без него. Плагин без строки в контракте печатается как unchecked, не как ok.
-Строка `<plugin> not-in-codex` — Codex обязан отказать в установке (политика записи); успешная
-установка — MISMATCH.
-Правка самого скрипта — `bash scripts/test-check-skills.sh` (офлайн, поддельные `claude`/`codex`:
-сравнение и все пути к rc 2).
-
-## Релизы и версии в линейке
-
-Каталог версий не хранит, но каждый плагинный репозиторий ведёт их традиционно —
-чтобы версия и прогресс были видны с витрины GitHub, а не только в `plugin.json`:
-
-0. **self-check поставки** — линейка сама есть skill supply chain, и от своих
-   поставок требуется то же, что `task` 6b требует от чужого кода (capability
-   diff): `git diff <prev-tag>..HEAD -- skills/ hooks/ templates/ commands/
-   agents/` + grep по этому диффу на сеть (`curl|wget|fetch|http`), креды
-   (`_API_KEY|process.env|~/.ssh`), `rm -rf`, `eval`, base64. Каждое попадание
-   — названо в changelog этого релиза, не молча;
-1. бамп в `plugin.json` (единственный источник истины);
-2. секция в `CHANGELOG.md` — Keep a Changelog (`Added/Changed/Fixed`) плюс
-   compare-ссылка внизу. **Только `Edit` с точным `old_string`, никогда `Write`
-   поверх файла** — агент, перезаписавший CHANGELOG целиком, уже был
-   задокументированным инцидентом. Перед тегом сверить, что бамп покрывает
-   весь дифф с прошлого тега: вторая фича, приехавшая после бампа, остаётся
-   без версии (`scripts/release-check.sh` в task-flow ловит это как DRIFT);
-3. аннотированный тег на коммите, который несёт оба пункта выше;
-4. GitHub Release, тело которого — та самая секция changelog
-   (`gh release create <tag> --notes-file … --verify-tag`).
-
-Схема тегов зависит от формы репозитория, а не от каталога:
-
-- один плагин в репозитории → `vX.Y.Z` (`task-flow`, `md2pdf`, `co-rar`,
-  `loop-foundry`);
-- несколько плагинов в одном репозитории → `<plugin>-vX.Y.Z`
-  (`research-pipeline`, `voxscribe`) — тег обязан различать, что именно вышло;
-- форк чужого скилла → префикс `plugin-vX.Y.Z` (`premortem`). У апстрима свои
-  теги `vX.Y.Z` на других коммитах: одинаковое имя тега при синхронизации форка
-  — конфликт. Номер здесь версионирует упаковку, а не сам скилл, и README форка
-  не трогаем вообще, иначе мержи из апстрима перестают быть бесконфликтными.
-
-Бейдж версии в README читает последний Release, поэтому пропущенный шаг 4
-оставляет бейдж протухшим. Установка при этом всегда идёт с дефолтной ветки —
-записи каталога не пинят `ref`, — так что теги размечают историю, а не раздачу.
-
-Сам каталог версии не имеет: у него дата-ориентированный `CHANGELOG.md` и нет
-тегов/релизов. Это осознанно — «версия каталога» не значила бы ничего.
-
-## Кросс-репо сессии из этого каталога
-
-Этапы, задевающие плагин + его потребителей + каталог (пример: prediction-protocol
-1.0.x → task-flow `task`, loop-foundry, запись здесь), ведутся **из этого
-каталога**; точечная правка одного плагина — из его репозитория, где
-автоматически грузятся его `CLAUDE.md` и lint. Из devpowers `CLAUDE.md` других
-репозиториев **не загружаются** — перед первой правкой репозитория прочитать
-его `CLAUDE.md` явно; у task-flow он локальный и untracked (в `.gitignore`):
-защищённый `main`, PR + `gh pr merge --auto --squash`, lockstep README —
-описаны только там. Порядок релиза связанных изменений: плагин → каталог →
-потребители. Карта локальных клонов (имена каталогов ≠ именам плагинов) —
-в памяти проекта.
-
-## Добавление плагина в линейку
-
-1. Плагин создаётся в собственном репозитории по макету: `plugins/<name>/` с `.claude-plugin/plugin.json`, скиллы в `plugins/<name>/skills/<skill>/SKILL.md` (см. umar-s/loop-foundry как образец).
-2. Сюда добавляется одна запись в `marketplace.json` с `git-subdir`-источником: `url` репозитория, `path: plugins/<name>`, `ref: main`.
-3. Скиллы, которые он показывает модели, — в `scripts/expected-skills.txt`; плагин, которому в
-   Codex нечего делать, — `<plugin> not-in-codex` плюс `"policy": {"installation": "NOT_AVAILABLE"}`
-   в записи.
-4. `claude plugin validate .`, `bash scripts/check-skills.sh <name>`, коммит, push.
-
-Таблицу плагинов в README держать синхронной с `marketplace.json`.
+- `CHANGELOG.md` правится только `Edit` с точным `old_string`, никогда `Write`.
