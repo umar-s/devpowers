@@ -14,6 +14,19 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — task-flow 1.14.4: a launcher of the project's own in a wave window
+
+- **task-flow 1.14.4** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.4)):
+  `TASK_WAVE_CLAUDE_BIN` / `TASK_WAVE_CODEX_BIN` name the command a wave
+  window runs in place of `claude` / `codex`. That command is a launcher that
+  sets up a proxy only the CLI uses, or a memory limit. Such launchers were
+  shell functions, which a tmux window never sees, so the window started the
+  bare CLI. The launcher must be an executable file (`type -P`). A missing one
+  is refused before a fetch or a window.
+  - The tests are 151, also run under bash 3.2; 26 mutations are caught.
+    Codex reviewed it in two rounds. No source or ref change here.
+- `docs/epic-to-tasks.md`: the launcher variables.
+
 ## 2026-10-17 — task-flow 1.14.3: the prompt after `--`, windows without the agent's session
 
 - **task-flow 1.14.3** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.3)):
