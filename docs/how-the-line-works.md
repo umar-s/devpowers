@@ -1,6 +1,6 @@
 # Как работает линейка devpowers: decompose → task → ci-gate, prediction-protocol, loop-foundry, co-rar
 
-Состояние на 2026-10-17. Версии: task-flow **1.14.2**, prediction-protocol **1.2.1**,
+Состояние на 2026-10-17. Версии: task-flow **1.14.3**, prediction-protocol **1.2.1**,
 loop-foundry **1.2.1**, co-rar **1.0.1**. Источник истины — `SKILL.md` и `references/`
 каждого плагина; этот документ — карта и объяснение, не замена. Где документ
 и скилл разойдутся, прав скилл.
@@ -976,6 +976,7 @@ bump), Σdelta: 38 HIT / 0 MISS / 2 INCONCLUSIVE, n=40». Автономию в�
 | 10-17 | task-flow | 1.13.0 | `templates/wave/task-wave.sh`: волна готовых задач GitHub Issues — worktree и окно tmux на задачу, харнесс по метке `builder:*` |
 | 10-17 | task-flow | 1.14.0 | `task-wave.sh --tracker youtrack` (REST, без `gh` — GitLab; правила измерены на живом инстансе); ID с сервера только `KEY-N`, `#` в имени окна tmux удвоен; `decompose` пишет исполнителя тегом/меткой `builder:*` |
 | 10-17 | task-flow | 1.14.1 / 1.14.2 | база волны — ветка по умолчанию от самого remote (`git ls-remote`), не устаревший `origin/HEAD`; `git config task-wave.base` — интеграционная ветка клона; `TASK_WAVE_CLAUDE_ARGS` / `TASK_WAVE_CODEX_ARGS` — флаги CLI в окнах, каждый одним аргументом |
+| 10-17 | task-flow | 1.14.3 | промпт в окне волны — после `--` (`claude --mcp-config` и `codex --image` забирали его); окно не наследует сессию запустившего агента (`env -u` по семействам xreview.sh, из оболочки и из сервера tmux) |
 | 10-17 | devpowers | docs | правило двух файлов (`AGENTS.md` + `CLAUDE.md` с `@AGENTS.md`) в devpowers, task-flow, prediction-protocol, loop-foundry, co-rar; `epic-to-tasks.md` |
 
 ---

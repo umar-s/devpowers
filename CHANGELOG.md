@@ -14,6 +14,22 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — task-flow 1.14.3: the prompt after `--`, windows without the agent's session
+
+- **task-flow 1.14.3** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.3)):
+  two defects from the first live wave on a GitLab + YouTrack workspace.
+  - The prompt in a wave window now follows `--`. `claude --mcp-config` read
+    it as a second config path, and the window closed; `codex --image`
+    attached it as a second image. A trailing `--` in `TASK_WAVE_*_ARGS` is
+    dropped.
+  - A window no longer inherits the launching agent's session (`CLAUDECODE`,
+    `CLAUDE_CODE_*`, `CODEX_SESSION_ID`, …). These come from the shell and
+    from the tmux server's own environment; auth variables are kept.
+  - The tests are 141, with 18 mutations caught. Both CLIs were checked live.
+    Codex reviewed it in two rounds. No source or ref change here.
+- `docs/epic-to-tasks.md`: the `--` and the clean window environment.
+  `docs/how-the-line-works.md`: the chronology.
+
 ## 2026-10-17 — task-flow 1.14.2: the integration branch per clone, CLI flags for the windows
 
 - **task-flow 1.14.2** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.14.2)):
