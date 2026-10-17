@@ -14,6 +14,17 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — prediction-protocol 1.2.1; docs: epic → tasks manual
+
+- **prediction-protocol 1.2.1** ([release](https://github.com/umar-s/prediction-protocol/releases/tag/v1.2.1)):
+  `--expect lines=0` now grades HIT on an empty stdout — the grader's
+  `grep -c … || echo 0` produced `"0\n0"` there, so a correct "nothing left"
+  prediction came back MISS. Found in use, in a task-flow session; consumers
+  require `≥ 1.2.0` and need no change. No source or ref change here.
+- `docs/epic-to-tasks.md`: how to cut an epic into a task pool with
+  `task-flow:decompose`, hand each wave to Claude Code or Codex sessions (one
+  task = one session = one worktree = one PR) and close the epic.
+
 ## 2026-10-16 — research-pipeline 1.2.0 and voxscribe 2.1.0 run in Codex (S6 of the two-model stack)
 
 - **research-pipeline 1.2.0** ([release](https://github.com/umar-s/research-pipeline/releases/tag/research-pipeline-v1.2.0)):
