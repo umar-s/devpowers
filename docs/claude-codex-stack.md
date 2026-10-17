@@ -63,7 +63,8 @@ Security CLI / GitLab.
 5. **Две ловушки хоста.** Ubuntu 24.04: `kernel.apparmor_restrict_unprivileged_userns=1`
    — Codex CLI вне десктоп-приложения не может поднять bwrap
    (`bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted` ✅);
-   лечится AppArmor-профилем для бинаря `codex`, по образцу штатного
+   лечится AppArmor-профилем для `/usr/bin/bwrap` (userns создаёт он, не
+   `codex`; профиль на бинарь `codex` не помогает — факт 43), по образцу штатного
    `/etc/apparmor.d/chatgpt` (§5.1, нужен sudo). И: хуки плагина в Codex не
    работают, пока вы их не «доверили» через `/hooks`; доверие — по хэшу
    определения, т.е. **после каждой смены определения хука в `hooks.json` —
@@ -86,7 +87,7 @@ Security CLI / GitLab.
 | 6 | `permissionDecision: "ask"`, `continue`, `stopReason` для PreToolUse **не поддерживаются**: hook run = failed, tool call продолжается | мануал, дословно ⚠ (следствие для гейта — §4.1) |
 | 7 | `codex exec` не принимает `-a`; политика — `-c approval_policy=never` или профиль `-p <name>` (`$CODEX_HOME/<name>.config.toml`); stdin не-TTY → «Reading additional input from stdin» и ожидание EOF — в скриптах всегда `</dev/null` | ✅ (два зависших прогона) |
 | 8 | `codex exec review --base <branch>` несовместим с позиционным промптом; кастомные инструкции — либо без `--base` (сам берёт `git diff`), либо через `## Code Review Rules` в AGENTS.md | ✅ |
-| 9 | Песочница Codex (bwrap) на этом хосте падает: `kernel.apparmor_restrict_unprivileged_userns = 1`, профиль есть только у `/usr/lib/chatgpt/ChatGPT` (`flags=(unconfined) { userns, }`), у бинаря `codex` — нет | `codex sandbox linux -- echo` ✅; `use_legacy_landlock` — deprecated и сломан (panic) ✅ |
+| 9 | Песочница Codex (bwrap) на этом хосте падает: `kernel.apparmor_restrict_unprivileged_userns = 1`, профиль есть только у `/usr/lib/chatgpt/ChatGPT` (`flags=(unconfined) { userns, }`), у бинаря `codex` — нет. Уточнено 2026-10-17 (факт 43): нужен профиль у `/usr/bin/bwrap`, а не у `codex` | `codex sandbox linux -- echo` ✅; `use_legacy_landlock` — deprecated и сломан (panic) ✅ |
 | 10 | `codex mcp-server` работает, но помечен deprecated («use the app server»); инструменты `codex` / `codex-reply` | probe по stdio ✅ — в стек **не** берём |
 | 11 | `/import` в Codex CLI и Settings → Import в десктопе импортируют из Claude Code: `CLAUDE.md`→`AGENTS.md`, `settings.json`→`config.toml`, скиллы, плагины, хуки, MCP, subagents | мануал (Import from another agent) ⚠ |
 | 12 | Codex Security CLI: `npx @openai/codex-security@0.1.31`, команды `scan --diff BASE --head HEAD`, `--working-tree`, `--fail-on-severity`, `--auth chatgpt\|api-key`, `export --export-format sarif`, exit 0/1/2; `--dry-run` требует чистого дерева | ✅ dry-run; сам скан — ⚠ (нужен доступ Codex Security / Trusted Access for Cyber на аккаунте) |
@@ -120,6 +121,7 @@ Security CLI / GitLab.
 | 40 | Веб-поиск Codex 0.162.1 в `codex exec`: `tools.web__run` внутри `functions.exec` — `search_query`, затем `open` по `ref_id` (страница открыта). Режим: `web_search` из `config.toml`, если задан; иначе `cached` (индекс, не живая сеть); под full access предпочитается `live` (`resolve_web_search_mode*`, тест «read-only policy should default web_search to cached») | rollouts корня и субагента + исходники ✅ 2026-10-16 |
 | 41 | `codex sandbox -P :workspace`: `.git` read-only даже у репозитория внутри записываемого корня (`git add` → `Unable to create '…/.git/index.lock': Read-only file system`, то же у `commit` и `tag`). `TMPDIR` не задан, `/tmp` песочницы — это `/tmp` хоста (файл виден снаружи). `$HOME` и его подкаталоги (`~/Project`, `~/.cache` проверены) — read-only; прочие пути вне workspace не мерились | ✅ 2026-10-16 |
 | 42 | voxscribe 2.0.0 в `codex sandbox -P :workspace` (сеть off, faster-whisper 1.2.1, `large-v3` в HF-кэше): список папки, lecture по `.wav` 8.6 с (27.7 с wall) и по `.mp4` (ffmpeg внутри) — rc 0, текст распознан; `--out-dir` внутри workspace — rc 0. Модели нет в кэше (`--model tiny`) → `RuntimeError: Unable to open file 'model.bin' in model 'tiny'`, rc 1 | ✅ 2026-10-16 |
+| 43 | Codex CLI 0.163.0, интерактивная сессия в `workspace-write`: почти каждая команда — `bwrap: loopback: Failed RTM_NEWADDR` / `setting up uid map` и вопрос «выполнить без песочницы?»; без запросов работал только `--dangerously-bypass-approvals-and-sandbox`. User namespace создаёт `/usr/bin/bwrap` (в аудите все `userns_create` — `comm=bwrap profile=unconfined`), ни одного события от `codex`, так что профиль `codex-cli` прежней §5.1 в песочнице не участвует. `~/.codex/tmp/arg0/*/codex-linux-sandbox` — симлинки, AppArmor сопоставляет цель. Лечит профиль `bwrap` (§5.1); после него `codex-cli` удалён, песочница зелёная. Смена режима в TUI действует со следующего хода | аудит AppArmor, `bwrap --ro-bind / / --dev /dev --unshare-net true` rc 1 → 0 ✅ 2026-10-17 |
 
 ---
 
@@ -504,24 +506,30 @@ npm install -g @openai/codex@latest        # или standalone: chatgpt.com/code
 codex --version                            # codex-cli 0.162.1; тот же ~/.codex, что у десктоп-приложения
 sudo apt install ripgrep                   # codex doctor: "search command could not be verified"
 
-# 2. песочница: Ubuntu 24.04 запрещает userns непрофилированным бинарям — дать нативному бинарю codex
-#    тот же профиль, что у ChatGPT. У npm-установки бинарь лежит внутри nvm-версии Node → путь с глобами.
-sudo tee /etc/apparmor.d/codex-cli >/dev/null <<'APP'
+# 2. песочница: Ubuntu 24.04 запрещает userns непрофилированным бинарям. Namespace создаёт
+#    /usr/bin/bwrap, его и профилируем — тем же видом профиля, что у ChatGPT (факт 43).
+sudo tee /etc/apparmor.d/bwrap >/dev/null <<'APP'
 abi <abi/4.0>,
 include <tunables/global>
 
-profile codex-cli "/home/<user>/.nvm/versions/node/*/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/*/bin/codex" flags=(unconfined) {
+profile bwrap /usr/bin/bwrap flags=(unconfined) {
   userns,
-  include if exists <local/codex-cli>
+  include if exists <local/bwrap>
 }
 APP
-sudo apparmor_parser -r /etc/apparmor.d/codex-cli
-codex sandbox -- echo SANDBOX_OK           # ✅ 2026-10-15: SANDBOX_OK (до профиля: bwrap: loopback: Failed RTM_NEWADDR)
+sudo apparmor_parser -r /etc/apparmor.d/bwrap
+bwrap --ro-bind / / --dev /dev --unshare-net true; echo rc=$?   # ✅ 2026-10-17: rc=0 (до профиля: Failed RTM_NEWADDR, rc=1)
+codex sandbox -- echo SANDBOX_OK
 codex doctor
 ```
 
-Проверено 2026-10-15: после профиля и `codex sandbox -- …`, и команда модели в
-`codex exec -s read-only` выполняются внутри bwrap. Форма `codex sandbox linux -- …`
+Проверено 2026-10-17: после профиля команды модели в интерактивном `workspace-write`
+идут внутри bwrap без вопросов о выходе из песочницы. Прежний вариант этого раздела
+(2026-10-15) ставил профиль `codex-cli` на бинарь `codex` из npm-установки — он
+не участвует: userns создаёт не `codex`, а `bwrap` (факт 43). Стоит такой профиль —
+`sudo apparmor_parser -R /etc/apparmor.d/codex-cli && sudo rm /etc/apparmor.d/codex-cli`.
+Симптом может вернуться после обновления Ubuntu или Codex (другой путь к `bwrap`,
+сброс профилей) — тогда первой запускать проверку `bwrap` выше. Форма `codex sandbox linux -- …`
 из мануала в 0.162 неверна — слово `linux` уходит в `execvp` и даёт panic
 `Failed to execvp linux`. Многострочный heredoc с `sudo` набирать в настоящем
 терминале, не через `!` в промпте Claude (нет TTY для пароля, кавычки ломаются);
@@ -531,8 +539,11 @@ codex doctor
 `workspace-write` (обе идут через bwrap); работал бы только
 `--dangerously-bypass-approvals-and-sandbox`, что для билдера неприемлемо.
 Альтернатива системная (`sysctl kernel.apparmor_restrict_unprivileged_userns=0`)
-ослабляет весь хост — не рекомендую. Standalone-установка кладёт бинарь под
-`~/.codex/packages/standalone/<ver>/…` — профиль тогда на этот путь.
+ослабляет весь хост — не рекомендую. Измерено на npm-установке 0.163.0: она берёт
+системный `/usr/bin/bwrap` (профиль на него и починил песочницу). В поставках есть и свой
+`codex-resources/bwrap` (npm vendor, `~/.codex/packages/app-server-daemon/…`); если
+Codex возьмёт его — например, на хосте без системного `bwrap`, — профиль нужен на его
+путь. Аудит `comm=bwrap` эти бинари не различает.
 
 ### 5.2 Маркетплейс и плагины в Codex
 
@@ -761,8 +772,9 @@ codex exec -p builder -C "$WT" --dangerously-bypass-hook-trust --json -o "/tmp/$
 — и это защита, а не помеха: квитанции из сессии не открываются, one-way
 команды тикета отклоняются, и их делаете вы после прогона (или тикет идёт в
 TUI/Claude). `--add-dir` на корень состояния не давать: записываемое моделью
-состояние — выключаемый гейт. Отказы гейта ищите в `$TASK.stderr`, не в
-событиях (факт 25). `.git` worktree'а лежит вне песочницы — коммит модели
+состояние — выключаемый гейт. Отказы гейта в событиях нет (факт 25): читайте
+`"$PREDICT" status --json` → `denies` (prediction-protocol ≥ 1.2.0); `$TASK.stderr` —
+только для глаз, многострочную запись в нём команда может подделать. `.git` worktree'а лежит вне песочницы — коммит модели
 требует правила `git commit` (§5.3) у **пользовательских** `.rules` либо
 делается после прогона руками; worktree не помечайте trusted (факт 27).
 
@@ -855,7 +867,7 @@ codex-security; фаза 8 task считает пайплайн зелёным �
 |---|---|---|
 | `permissionDecision: ask` не поддерживается в Codex | до S1 гейт на Codex fail-open в клетках «ask» — one-way вне протокола **выполняется** | S1: deny; до S1 — на Codex всегда `predict on` перед one-way (тогда клетка «без квитанции» = deny уже сейчас) |
 | Trust хуков по хэшу | после каждого обновления плагина хуки молча не работают до `/hooks` → Trust | `predict report` → `gate: never` = хук не срабатывал; раннер — флаг bypass |
-| bwrap + AppArmor userns (Ubuntu 24.04) | любая команда модели в CLI-Codex падает | профиль §5.1 (sudo, один раз, и на раннер-хосте) |
+| bwrap + AppArmor userns (Ubuntu 24.04) | любая команда модели в CLI-Codex падает; в TUI — вопрос «без песочницы?» почти на каждом шаге | профиль на `/usr/bin/bwrap`, §5.1 (sudo, один раз, и на раннер-хосте); профиль на `codex` не помогает (факт 43) |
 | `.git`/`.codex`/`.agents` read-only в `workspace-write` | `git add`/`commit`/`tag` = эскалация (`.git` — измерено, факт 41); под `never` — ошибка | `.rules` §5.3 или интерактивные approvals |
 | Сеть off в `workspace-write` | `git push`/`pip`/`glab` — эскалация | `[sandbox_workspace_write] network_access = true` |
 | `~/.local/state` read-only в `workspace-write` | `predict open`/`close` из шелла Codex-модели падают — квитанцию не открыть, каждый one-way = deny | так и оставить: `--add-dir` на корень состояния даёт модели выключить гейт вычисленным путём, незаметно (факт 26). One-way — после прогона руками или в `deliver.sh` лупа; квитанции в сессии — только у Claude (там гейт — свидетель, не граница) |

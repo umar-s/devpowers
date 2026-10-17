@@ -14,6 +14,39 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
+## 2026-10-17 — docs: the line manual for two harnesses, YouTrack first, the bwrap profile
+
+- `docs/how-the-line-works.md` brought from 2026-08-23 (task-flow 1.11.0,
+  prediction-protocol 1.0.3, loop-foundry 1.1.0) to task-flow 1.13.0,
+  prediction-protocol 1.2.1, loop-foundry 1.2.0:
+  - both harnesses and full skill names (`/plugin:skill`, `$plugin:skill`);
+  - bindings in `AGENTS.md` (`CLAUDE.md` imports it);
+  - phases 6/6b by the other model through `xreview.sh`, the same model only as a
+    recorded fallback;
+  - the hook matrix with its Codex rows and the deny record;
+  - loop-foundry's executor per harness and its verifier through `xreview.sh` (the
+    `<loop>-verify` session is gone), `gate_denies` from `predict status --json`;
+  - the chronology and traps through 2026-10-17.
+
+  §8.3 now says that the "two ticks per ticket" composition no longer resumes at
+  phase 8: loop-foundry 1.2.0 cleans the checkout every tick, and `checkpoint.md`
+  accepts a `state.md` only on the same branch and HEAD. A fresh-context check of
+  every added claim against the plugin sources found eleven errors, all fixed
+  before this commit. The worst was the claim that `decompose` writes `builder:*`
+  tags; its adapter writes no labels or tags.
+- `docs/epic-to-tasks.md`: YouTrack is the main tracker, GitHub Issues the
+  alternative. Step 0 no longer creates a GitHub repository. `task-wave.sh` is
+  marked GitHub-only, as it is in 1.13.0, and YouTrack gets a hand-run tmux wave,
+  tested on a throwaway repository with a stub CLI.
+- `docs/claude-codex-stack.md`: the host's AppArmor profile goes on
+  `/usr/bin/bwrap`, which creates the user namespace (fact 43). The 2026-10-15
+  profile on the `codex` binary played no part, and §5.1 says how to remove it.
+  Bundled `codex-resources/bwrap` copies are named. §7.2' reads denies from
+  `status --json`, not stderr.
+- Known and not fixed here: loop-foundry 1.2.0's GAPS checklist still asks for
+  a profile on the `codex` binary. Its proof command is right; the wording is not.
+- README links both manuals. No source or ref change.
+
 ## 2026-10-17 — prediction-protocol 1.2.1, task-flow 1.13.0; docs: epic → tasks manual
 
 - **task-flow 1.13.0** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.13.0)):

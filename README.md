@@ -39,6 +39,11 @@ One catalog serves both harnesses. A skill is called `$plugin:skill` in Codex an
 
 `statusline` is the one entry with a Codex-only field, `"policy": {"installation": "NOT_AVAILABLE"}`: `codex plugin add statusline@devpowers` refuses it, Claude Code ignores the field (`claude plugin validate .` warns `Unknown field 'policy'` — expected). The policy stops new installs only: a copy installed in Codex earlier stays until `codex plugin remove statusline@devpowers`. What each plugin needed for Codex and how to run the line across both harnesses — [docs/claude-codex-stack.md](docs/claude-codex-stack.md).
 
+Manuals (Russian): how decompose → task → ci-gate, prediction-protocol, loop-foundry and
+co-rar fit together — [docs/how-the-line-works.md](docs/how-the-line-works.md); an epic
+cut into a task pool and run wave by wave across Claude Code and Codex sessions, YouTrack
+or GitHub Issues — [docs/epic-to-tasks.md](docs/epic-to-tasks.md).
+
 ## Install
 
 In Claude Code:
