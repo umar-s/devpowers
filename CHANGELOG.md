@@ -14,8 +14,14 @@ no release tags here. Per-plugin release history lives in each plugin's repo:
 [premortem](https://github.com/umar-s/premortem/releases) ·
 [statusline](https://github.com/umar-s/statusline/releases).
 
-## 2026-10-17 — prediction-protocol 1.2.1; docs: epic → tasks manual
+## 2026-10-17 — prediction-protocol 1.2.1, task-flow 1.13.0; docs: epic → tasks manual
 
+- **task-flow 1.13.0** ([release](https://github.com/umar-s/task-flow/releases/tag/v1.13.0)):
+  `templates/wave/task-wave.sh` starts a wave's ready tasks side by side — a
+  worktree and a tmux window per issue, Claude Code or Codex by its `builder:*`
+  label, `task` already invoked; nothing merged or pushed. Ten Codex review
+  rounds; the manual below gains "Волна одной командой". No source or ref
+  change here: the skills a harness lists are unchanged.
 - **prediction-protocol 1.2.1** ([release](https://github.com/umar-s/prediction-protocol/releases/tag/v1.2.1)):
   `--expect lines=0` now grades HIT on an empty stdout — the grader's
   `grep -c … || echo 0` produced `"0\n0"` there, so a correct "nothing left"
